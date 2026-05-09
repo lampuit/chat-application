@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isConversationMember() {
+      return isSignedIn() && request.auth.uid in resource.data.memberIds;
+    }
+
+    function isConversationMemberOnCreate() {
+      return isSignedIn() && request.auth.uid in request.resource.data.memberIds;
+    }
+
+    function isConversationParticipant(conversationId) {
+      return isSignedIn()
+        && request.auth.uid in
+          get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberIds;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isConversationMember();
+      allow create: if isConversationMemberOnCreate()
+        && request.resource.data.type == "direct"
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() == 2;
+      allow update: if isConversationMember();
+
+      match /messages/{messageId} {
+        allow read: if isConversationParticipant(conversationId);
+        allow create: if isConversationParticipant(conversationId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.conversationId == conversationId;
+      }
+    }
+  }
+}
