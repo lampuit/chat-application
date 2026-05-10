@@ -16,25 +16,25 @@ export function ConversationList({
   onSelectConversation,
 }: ConversationListProps) {
   return (
-    <section className="rounded-[2rem] border border-black/5 bg-white/80 p-5">
-      <div className="mb-4">
+    <section className="flex min-h-0 flex-col rounded-[2rem] border border-black/5 bg-white/80 p-5 shadow-sm">
+      <div className="mb-4 space-y-1">
         <h2 className="text-lg font-semibold text-slate-950">Conversations</h2>
         <p className="text-sm text-slate-500">Recent direct message threads.</p>
       </div>
       {conversations.length === 0 ? (
         <p className="text-sm text-slate-500">No conversations yet.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="flex-1 space-y-3 overflow-y-auto pr-1">
           {conversations.map((conversation) => {
             const isSelected = conversation.id === selectedConversationId;
 
             return (
               <li key={conversation.id}>
                 <button
-                  className={`w-full rounded-2xl px-4 py-3 text-left ${
+                  className={`w-full rounded-2xl px-4 py-3 text-left transition-all ${
                     isSelected
-                      ? "bg-emerald-900 text-white"
-                      : "border border-black/5 bg-stone-50 text-slate-900"
+                      ? "bg-emerald-950 text-white shadow-[0_10px_24px_rgba(5,46,22,0.18)]"
+                      : "border border-black/5 bg-stone-50 text-slate-900 hover:border-emerald-200 hover:bg-emerald-50/60"
                   }`}
                   onClick={() => onSelectConversation(conversation.id)}
                   type="button"

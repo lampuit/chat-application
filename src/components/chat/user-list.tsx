@@ -18,19 +18,19 @@ export function UserList({
   const availableUsers = users.filter((user) => user.uid !== currentUserId);
 
   return (
-    <section className="rounded-[2rem] border border-black/5 bg-white/80 p-5">
-      <div className="mb-4">
+    <section className="flex min-h-0 flex-col rounded-[2rem] border border-black/5 bg-white/80 p-5 shadow-sm">
+      <div className="mb-4 space-y-1">
         <h2 className="text-lg font-semibold text-slate-950">Users</h2>
         <p className="text-sm text-slate-500">Start a direct conversation.</p>
       </div>
       {availableUsers.length === 0 ? (
         <p className="text-sm text-slate-500">No registered users yet.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="flex-1 space-y-3 overflow-y-auto pr-1">
           {availableUsers.map((user) => (
             <li key={user.uid}>
               <button
-                className="w-full rounded-2xl border border-black/5 bg-stone-50 px-4 py-3 text-left"
+                className="w-full rounded-2xl border border-black/5 bg-stone-50 px-4 py-3 text-left transition-all hover:border-emerald-200 hover:bg-emerald-50/60"
                 onClick={() => onStartConversation(user.uid)}
                 type="button"
               >

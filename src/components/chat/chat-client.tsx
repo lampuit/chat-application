@@ -252,24 +252,47 @@ export function ChatClient() {
     return null;
   }
 
+  const displayName = currentUser.displayName ?? currentUser.email ?? "Realtime Chat";
+  const displayNameInitials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-emerald-700">
-            Signed in
-          </p>
-          <h1 className="text-3xl font-semibold text-slate-950">
-            {currentUser.displayName ?? currentUser.email ?? "Realtime Chat"}
-          </h1>
+    <div className="space-y-5 lg:space-y-6">
+      <div className="flex flex-col gap-4 rounded-[1.75rem] border border-black/5 bg-white/70 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-950 text-base font-semibold text-white shadow-[0_14px_30px_rgba(5,46,22,0.18)]">
+            {displayNameInitials || "RC"}
+          </div>
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-700">
+              Signed in
+            </p>
+            <h1 className="truncate text-2xl font-semibold text-slate-950 sm:text-3xl">
+              {displayName}
+            </h1>
+            <p className="truncate text-sm text-slate-500">
+              {currentUser.email ?? "Active account"}
+            </p>
+          </div>
         </div>
-        <button
-          className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-medium text-slate-700"
-          onClick={() => void logout()}
-          type="button"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          {currentUser.displayName ? (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+              Profile ready
+            </span>
+          ) : null}
+          <button
+            className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            onClick={() => void logout()}
+            type="button"
+          >
+            Logout
+          </button>
+        </div>
       </div>
       <ChatShell
         conversations={conversationItems}

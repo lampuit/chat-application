@@ -50,7 +50,7 @@ export function ChatShell({
   onSendMessage,
 }: ChatShellProps) {
   return (
-    <div className="grid min-h-[75vh] gap-4 lg:grid-cols-[280px_320px_1fr]">
+    <div className="grid min-h-0 gap-4 lg:h-[calc(100vh-17rem)] lg:grid-cols-[minmax(0,280px)_minmax(0,320px)_minmax(0,1fr)]">
       <UserList
         currentUserId={currentUserId}
         users={users}
@@ -61,7 +61,7 @@ export function ChatShell({
         selectedConversationId={selectedConversationId}
         onSelectConversation={onSelectConversation}
       />
-      <section className="flex min-h-[60vh] flex-col rounded-[2rem] border border-black/5 bg-stone-50/85">
+      <section className="flex min-h-[28rem] flex-col overflow-hidden rounded-[2rem] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(244,249,244,0.92))] shadow-[0_18px_48px_rgba(15,23,32,0.06)]">
         <MessageThread
           hasSelection={Boolean(selectedConversationId)}
           messages={messages}
