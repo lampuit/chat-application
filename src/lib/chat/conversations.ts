@@ -10,7 +10,11 @@ type CreateConversationInput = {
   conversationId: string;
   currentUserId: string;
   otherUserId: string;
-  text: string;
+  text?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
 };
 
 type ConversationWriteDeps = {
@@ -21,18 +25,41 @@ type ConversationWriteDeps = {
 };
 
 export function createMessageRecord(
-  input: Pick<CreateConversationInput, "conversationId" | "currentUserId" | "text"> & {
-    senderId?: string;
-  },
+  input:
+    | (Pick<CreateConversationInput, "conversationId" | "currentUserId" | "text"> & {
+        senderId?: string;
+      })
+    | (Pick<CreateConversationInput, "conversationId" | "currentUserId"> & {
+        senderId?: string;
+        fileUrl: string;
+        fileName?: string;
+        fileType?: string;
+        fileSize?: number;
+        text?: string;
+      }),
   timestamp: FirestoreTimestamp,
 ): Message {
-  const senderId = input.senderId ?? input.currentUserId;
+  const senderId = (input as any).senderId ?? input.currentUserId;
+
+  if ((input as any).fileUrl) {
+    return {
+      conversationId: input.conversationId,
+      senderId,
+      type: "file",
+      fileUrl: (input as any).fileUrl,
+      fileName: (input as any).fileName,
+      fileType: (input as any).fileType,
+      fileSize: (input as any).fileSize,
+      text: (input as any).text,
+      createdAt: timestamp,
+    };
+  }
 
   return {
     conversationId: input.conversationId,
     senderId,
     type: "text",
-    text: input.text,
+    text: (input as any).text ?? "",
     createdAt: timestamp,
   };
 }
@@ -46,11 +73,15 @@ export function createConversationRecord(
     string,
   ];
 
+  const lastMessageText = input.fileUrl
+    ? `${input.fileType?.startsWith("image/") ? "[image]" : "[file]"} ${input.fileName ?? ""}`
+    : input.text ?? "";
+
   return {
     type: "direct",
     memberIds,
     memberKey: buildDirectMemberKey(input.currentUserId, input.otherUserId),
-    lastMessageText: input.text,
+    lastMessageText,
     lastMessageSenderId: input.currentUserId,
     lastMessageAt: timestamp,
     createdAt: timestamp,
@@ -95,7 +126,7 @@ export async function createDirectConversationWithFirstMessage(
   );
 
   batch.set(conversationRef, createConversationRecord(input, timestamp));
-  batch.set(messageRef, createMessageRecord(input, timestamp));
+  batch.set(messageRef, createMessageRecord(input as any, timestamp));
 
   await batch.commit();
 }

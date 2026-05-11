@@ -12,6 +12,8 @@ describe("ChatShell", () => {
         messages={[]}
         selectedConversationId={null}
         draftMessage=""
+        errorMessage={null}
+        isUploading={false}
         onDraftMessageChange={() => undefined}
         onSelectConversation={() => undefined}
         onStartConversation={() => undefined}

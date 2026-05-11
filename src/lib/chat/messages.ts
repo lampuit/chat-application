@@ -9,7 +9,11 @@ import type { ConversationWriteDeps } from "@/lib/chat/messages.types";
 export type SendMessageInput = {
   conversationId: string;
   senderId: string;
-  text: string;
+  text?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
 };
 
 async function getMessageWriteDeps(): Promise<ConversationWriteDeps> {
@@ -49,24 +53,39 @@ export async function sendMessageToConversation(
     messageId,
   );
 
+  const lastMessageText = input.fileUrl
+    ? `${input.fileType?.startsWith("image/") ? "[image]" : "[file]"} ${input.fileName ?? ""}`
+    : input.text ?? "";
+
   batch.set(
     conversationRef,
     {
-      lastMessageText: input.text,
+      lastMessageText,
       lastMessageSenderId: input.senderId,
       lastMessageAt: timestamp,
       updatedAt: timestamp,
     },
     { merge: true },
   );
+
   batch.set(
     messageRef,
     createMessageRecord(
-      {
-        conversationId: input.conversationId,
-        currentUserId: input.senderId,
-        text: input.text,
-      },
+      input.fileUrl
+        ? {
+            conversationId: input.conversationId,
+            currentUserId: input.senderId,
+            fileUrl: input.fileUrl,
+            fileName: input.fileName,
+            fileType: input.fileType,
+            fileSize: input.fileSize,
+            text: input.text,
+          }
+        : {
+            conversationId: input.conversationId,
+            currentUserId: input.senderId,
+            text: input.text ?? "",
+          },
       timestamp,
     ),
   );

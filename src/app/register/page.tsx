@@ -1,5 +1,6 @@
 import { PublicOnlyRoute } from "@/components/auth/public-only-route";
 import { RegisterForm } from "@/components/auth/register-form";
+import Link from "next/link";
 
 export default function RegisterPage() {
   return (
@@ -11,6 +12,12 @@ export default function RegisterPage() {
             Create an account to begin realtime messaging.
           </p>
           <RegisterForm />
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Already have an account?{' '}
+            <Link className="font-medium text-sky-900 underline-offset-4 hover:underline" href="/login">
+              Log in
+            </Link>
+          </p>
         </div>
       </main>
     </PublicOnlyRoute>

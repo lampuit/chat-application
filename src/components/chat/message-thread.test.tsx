@@ -33,4 +33,30 @@ describe("MessageThread", () => {
     expect(otherMessage).toHaveClass("justify-start");
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
+
+  it("renders a download link for non-image attachments", () => {
+    render(
+      <MessageThread
+        hasSelection
+        messages={[
+          {
+            id: "message-3",
+            senderLabel: "Alice",
+            text: "Please download",
+            createdAtLabel: "10:02",
+            isOwnMessage: false,
+            fileUrl: "https://example.com/spec.pdf",
+            fileName: "spec.pdf",
+            fileType: "application/pdf",
+          },
+        ] as any}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "spec.pdf" })).toHaveAttribute(
+      "href",
+      "https://example.com/spec.pdf",
+    );
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
 });

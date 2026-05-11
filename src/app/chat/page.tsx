@@ -4,8 +4,8 @@ import { ChatClient } from "@/components/chat/chat-client";
 export default function ChatPage() {
   return (
     <ProtectedRoute>
-      <main className="min-h-screen p-6">
-        <div className="w-full max-w-5xl rounded-[2rem] border border-black/5 bg-white/80 p-8 shadow-[0_24px_80px_rgba(15,23,32,0.08)]">
+      <main className="flex h-[100dvh] flex-col p-4 sm:p-6 lg:p-8">
+        <div className="flex min-h-0 flex-1 w-full flex-col bg-transparent p-0">
           <ChatClient />
         </div>
       </main>
