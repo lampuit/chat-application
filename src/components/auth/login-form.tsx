@@ -49,7 +49,7 @@ export function LoginForm() {
       </label>
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       <button
-        className="w-full rounded-2xl bg-emerald-900 px-5 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+        className="w-full rounded-2xl bg-sky-900 px-5 py-3 text-sm font-medium text-white disabled:bg-slate-300"
         disabled={isPending}
         type="submit"
       >
