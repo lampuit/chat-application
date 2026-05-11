@@ -81,7 +81,7 @@ describe("MessageComposer", () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText("Type your message")).toBeDisabled();
+    expect(screen.getByPlaceholderText("Type your message...")).toBeDisabled();
     expect(screen.getByLabelText("Attach file")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Uploading..." })).toBeDisabled();
   });

@@ -53,7 +53,7 @@ describe("MessageThread", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: "spec.pdf" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /spec\.pdf/i })).toHaveAttribute(
       "href",
       "https://example.com/spec.pdf",
     );

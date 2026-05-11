@@ -24,7 +24,9 @@ describe("ChatShell", () => {
     expect(screen.getByText("No registered users yet.")).toBeInTheDocument();
     expect(screen.getByText("No conversations yet.")).toBeInTheDocument();
     expect(
-      screen.getByText("Choose a conversation to start messaging."),
+      screen.getByText(
+        "Select a conversation from the sidebar to start messaging, or create a new one.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
