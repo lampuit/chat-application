@@ -99,6 +99,7 @@ export function MessageComposer({
             autoComplete="off"
           />
           <button
+            aria-label={isUploading ? "Uploading..." : "Send"}
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${
               isComposerDisabled || !value.trim()
                 ? "bg-slate-100 text-slate-400 cursor-not-allowed"
