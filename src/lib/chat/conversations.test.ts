@@ -25,6 +25,35 @@ describe("createMessageRecord", () => {
       createdAt: timestampToken,
     });
   });
+
+  it("stores generic attachment metadata for non-image files", () => {
+    const timestampToken = { ".sv": "serverTimestamp" };
+
+    expect(
+      createMessageRecord(
+        {
+          conversationId: "conversation-1",
+          senderId: "user-1",
+          fileUrl: "https://example.com/file.pdf",
+          fileName: "file.pdf",
+          fileType: "application/pdf",
+          fileSize: 512,
+          text: "See attached",
+        } as any,
+        timestampToken,
+      ),
+    ).toEqual({
+      conversationId: "conversation-1",
+      senderId: "user-1",
+      type: "file",
+      fileUrl: "https://example.com/file.pdf",
+      fileName: "file.pdf",
+      fileType: "application/pdf",
+      fileSize: 512,
+      text: "See attached",
+      createdAt: timestampToken,
+    });
+  });
 });
 
 describe("createDirectConversationWithFirstMessage", () => {

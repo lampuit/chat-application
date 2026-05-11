@@ -23,10 +23,22 @@ export type Conversation = {
   updatedAt: FirestoreTimestamp;
 };
 
-export type Message = {
-  conversationId: string;
-  senderId: string;
-  type: "text";
-  text: string;
-  createdAt: FirestoreTimestamp;
-};
+export type Message =
+  | {
+      conversationId: string;
+      senderId: string;
+      type: "text";
+      text: string;
+      createdAt: FirestoreTimestamp;
+    }
+  | {
+      conversationId: string;
+      senderId: string;
+      type: "file";
+      fileUrl: string;
+      fileName?: string;
+      fileType?: string;
+      fileSize?: number;
+      text?: string; // optional caption
+      createdAt: FirestoreTimestamp;
+    };

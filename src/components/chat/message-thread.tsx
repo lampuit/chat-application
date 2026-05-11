@@ -8,6 +8,9 @@ type MessageThreadProps = {
     text: string;
     createdAtLabel: string;
     isOwnMessage: boolean;
+    fileUrl?: string;
+    fileName?: string;
+    fileType?: string;
   }>;
 };
 
@@ -73,13 +76,49 @@ export function MessageThread({ hasSelection, messages }: MessageThreadProps) {
                 {message.createdAtLabel}
               </span>
             </div>
-            <p
-              className={`text-sm leading-6 ${
-                message.isOwnMessage ? "text-white" : "text-slate-600"
-              }`}
-            >
-              {message.text}
-            </p>
+            {message.fileUrl && message.fileType?.startsWith("image/") ? (
+              <a href={message.fileUrl} target="_blank" rel="noreferrer" className="block">
+                <img
+                  src={message.fileUrl}
+                  alt={message.fileName ?? "image"}
+                  className="max-h-[40vh] w-auto rounded-lg object-contain"
+                />
+                {message.text ? (
+                  <p className={`mt-2 text-sm ${message.isOwnMessage ? "text-emerald-100" : "text-slate-600"}`}>
+                    {message.text}
+                  </p>
+                ) : null}
+              </a>
+            ) : message.fileUrl ? (
+              <div className="space-y-2">
+                <a
+                  href={message.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  download={message.fileName}
+                  className={`block rounded-xl border px-3 py-2 text-sm font-medium underline-offset-2 hover:underline ${
+                    message.isOwnMessage
+                      ? "border-emerald-800 bg-emerald-900 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  {message.fileName ?? "Download file"}
+                </a>
+                {message.text ? (
+                  <p className={`text-sm ${message.isOwnMessage ? "text-emerald-100" : "text-slate-600"}`}>
+                    {message.text}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p
+                className={`text-sm leading-6 ${
+                  message.isOwnMessage ? "text-white" : "text-slate-600"
+                }`}
+              >
+                {message.text}
+              </p>
+            )}
           </div>
         </li>
       ))}

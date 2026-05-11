@@ -14,11 +14,11 @@ Core realtime chat application built with Next.js, TypeScript, Tailwind CSS, Fir
 - Direct 1-to-1 conversations
 - Realtime message updates with Firestore listeners
 - Firestore security rules and indexes
+- Firebase Storage image uploads for chat messages
 
 ## Out of Scope for Core Version
 
 - Group chat
-- File or image upload
 - Two-factor authentication
 - Push notifications
 

@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useTransition } from "react";
+import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ChatShell } from "@/components/chat/chat-shell";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createDirectConversationWithFirstMessage } from "@/lib/chat/conversations";
 import { buildDirectMemberKey } from "@/lib/chat/member-key";
 import { sendMessageToConversation } from "@/lib/chat/messages";
+import {
+  createPendingConversationRecord,
+  createPendingConversationTracker,
+} from "@/lib/chat/pending-conversations";
+import { validateChatUpload } from "@/lib/chat/upload-constraints";
 import { logout } from "@/lib/auth/auth-service";
 
 type UserRecord = {
@@ -38,8 +43,11 @@ export function ChatClient() {
     null,
   );
   const [draftMessage, setDraftMessage] = useState("");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const currentUserId = currentUser?.uid ?? null;
+  const pendingConversationTrackerRef = useRef(createPendingConversationTracker());
 
   useEffect(() => {
     if (!currentUserId) {
@@ -166,10 +174,23 @@ export function ChatClient() {
     return messages.map((message) => {
       const sender = users.find((entry) => entry.uid === message.senderId);
 
+      if ((message as any).type === "file") {
+        return {
+          id: message.id,
+          senderLabel: sender?.displayName ?? sender?.email ?? "Unknown user",
+          text: (message as any).text ?? "",
+          fileUrl: (message as any).fileUrl,
+          fileName: (message as any).fileName,
+          fileType: (message as any).fileType,
+          createdAtLabel: message.createdAt?.toDate?.().toLocaleTimeString() ?? "Sending...",
+          isOwnMessage: message.senderId === currentUserId,
+        };
+      }
+
       return {
         id: message.id,
         senderLabel: sender?.displayName ?? sender?.email ?? "Unknown user",
-        text: message.text,
+        text: (message as any).text ?? "",
         createdAtLabel: message.createdAt?.toDate?.().toLocaleTimeString() ?? "Sending...",
         isOwnMessage: message.senderId === currentUserId,
       };
@@ -192,6 +213,12 @@ export function ChatClient() {
     }
 
     const conversationId = crypto.randomUUID();
+    const memberIds = [currentUserId, otherUserId].sort();
+    pendingConversationTrackerRef.current.rememberPartner(conversationId, otherUserId);
+    setConversations((currentConversations) => [
+      createPendingConversationRecord(conversationId, currentUserId, otherUserId),
+      ...currentConversations.filter((conversation) => conversation.id !== conversationId),
+    ]);
     setSelectedConversationId(conversationId);
 
     const { setDoc, doc, serverTimestamp } = await import("firebase/firestore");
@@ -202,49 +229,130 @@ export function ChatClient() {
       return;
     }
 
-    await setDoc(doc(services.db, "conversations", conversationId), {
-      type: "direct",
-      memberIds: [currentUserId, otherUserId].sort(),
-      memberKey: buildDirectMemberKey(currentUserId, otherUserId),
-      lastMessageText: "",
-      lastMessageSenderId: "",
-      lastMessageAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    const writePromise = pendingConversationTrackerRef.current.trackWrite(
+      conversationId,
+      setDoc(doc(services.db, "conversations", conversationId), {
+        type: "direct",
+        memberIds,
+        memberKey: buildDirectMemberKey(currentUserId, otherUserId),
+        lastMessageText: "",
+        lastMessageSenderId: "",
+        lastMessageAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await writePromise;
   }
 
-  function handleSendMessage() {
-    if (!currentUserId || !selectedConversationId || !draftMessage.trim()) {
+  function getOtherUserIdForConversation(conversationId: string) {
+    return pendingConversationTrackerRef.current.resolveOtherUserId(
+      conversationId,
+      currentUserId,
+      conversations,
+    );
+  }
+
+  function handleSendMessage(file?: File) {
+    if (!currentUserId || !selectedConversationId || isUploading) {
       return;
     }
 
     const hasMessages = messages.length > 0;
     const nextMessage = draftMessage.trim();
-    setDraftMessage("");
 
-    startTransition(async () => {
-      if (!hasMessages) {
-        const selectedConversation = conversations.find(
-          (conversation) => conversation.id === selectedConversationId,
-        );
-        const otherUserId =
-          selectedConversation?.memberIds.find((memberId) => memberId !== currentUserId) ?? "";
+    if (file) {
+      const validationError = validateChatUpload(file);
 
-        await createDirectConversationWithFirstMessage({
-          conversationId: selectedConversationId,
-          currentUserId,
-          otherUserId,
-          text: nextMessage,
-        });
+      if (validationError) {
+        setUploadError(validationError);
         return;
       }
+    }
 
-      await sendMessageToConversation({
-        conversationId: selectedConversationId,
-        senderId: currentUserId,
-        text: nextMessage,
-      });
+    setUploadError(null);
+
+    if (!file) {
+      setDraftMessage("");
+    }
+
+    startTransition(async () => {
+      try {
+        if (!hasMessages) {
+          await pendingConversationTrackerRef.current.waitForWrite(selectedConversationId);
+        }
+
+        if (file) {
+          setIsUploading(true);
+          const { getDownloadURL, ref: storageRef, uploadBytes, getStorage } = await import(
+            "firebase/storage",
+          );
+          const { getFirebaseServices } = await import("@/lib/firebase/client");
+          const services = getFirebaseServices();
+
+          if (!services) {
+            setUploadError("Firebase is not configured.");
+            return;
+          }
+
+          const storage = getStorage(services.app);
+          const filename = `${Date.now()}_${file.name}`;
+          const path = `conversations/${selectedConversationId}/files/${filename}`;
+          const fileRef = storageRef(storage, path);
+
+          await uploadBytes(fileRef, file as Blob);
+          const url = await getDownloadURL(fileRef);
+
+          if (!hasMessages) {
+            await createDirectConversationWithFirstMessage({
+              conversationId: selectedConversationId,
+              currentUserId,
+              otherUserId: getOtherUserIdForConversation(selectedConversationId),
+              fileUrl: url,
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size,
+              text: nextMessage,
+            });
+          } else {
+            await sendMessageToConversation({
+              conversationId: selectedConversationId,
+              senderId: currentUserId,
+              text: nextMessage,
+              fileUrl: url,
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size,
+            });
+          }
+
+          return;
+        }
+
+        if (!nextMessage) return;
+
+        if (!hasMessages) {
+          await createDirectConversationWithFirstMessage({
+            conversationId: selectedConversationId,
+            currentUserId,
+            otherUserId: getOtherUserIdForConversation(selectedConversationId),
+            text: nextMessage,
+          });
+          return;
+        }
+
+        await sendMessageToConversation({
+          conversationId: selectedConversationId,
+          senderId: currentUserId,
+          text: nextMessage,
+        });
+      } catch {
+        setUploadError("Upload failed. Please try again.");
+      } finally {
+        if (file) {
+          setIsUploading(false);
+        }
+      }
     });
   }
 
@@ -299,6 +407,8 @@ export function ChatClient() {
         currentUserId={currentUserId}
         draftMessage={draftMessage}
         messages={messageItems}
+        errorMessage={uploadError}
+        isUploading={isUploading}
         onDraftMessageChange={setDraftMessage}
         onSelectConversation={setSelectedConversationId}
         onSendMessage={handleSendMessage}

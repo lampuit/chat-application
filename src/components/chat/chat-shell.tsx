@@ -22,6 +22,9 @@ type ChatMessage = {
   text: string;
   createdAtLabel: string;
   isOwnMessage: boolean;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
 };
 
 type ChatShellProps = {
@@ -31,10 +34,12 @@ type ChatShellProps = {
   messages: ChatMessage[];
   selectedConversationId: string | null;
   draftMessage: string;
+  errorMessage: string | null;
+  isUploading: boolean;
   onDraftMessageChange: (value: string) => void;
   onSelectConversation: (conversationId: string) => void;
   onStartConversation: (userId: string) => void;
-  onSendMessage: () => void;
+  onSendMessage: (file?: File) => void;
 };
 
 export function ChatShell({
@@ -44,6 +49,8 @@ export function ChatShell({
   messages,
   selectedConversationId,
   draftMessage,
+  errorMessage,
+  isUploading,
   onDraftMessageChange,
   onSelectConversation,
   onStartConversation,
@@ -68,6 +75,8 @@ export function ChatShell({
         />
         <MessageComposer
           disabled={!selectedConversationId}
+          errorMessage={errorMessage}
+          isUploading={isUploading}
           value={draftMessage}
           onChange={onDraftMessageChange}
           onSend={onSendMessage}
