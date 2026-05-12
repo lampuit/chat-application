@@ -1,3 +1,4 @@
+import React from "react";
 import { PublicOnlyRoute } from "@/components/auth/public-only-route";
 import { RegisterForm } from "@/components/auth/register-form";
 import Link from "next/link";
