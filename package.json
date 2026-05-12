@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "sh -c 'test -f .next/standalone/server.js || npm run build && node .next/standalone/server.js'",
+    "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest"
   },
