@@ -5,6 +5,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Realtime Chat",
   description: "Core realtime chat application built with Next.js and Firebase.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
