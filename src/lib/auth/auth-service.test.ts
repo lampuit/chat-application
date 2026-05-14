@@ -449,6 +449,42 @@ describe("sendCurrentUserVerificationEmail", () => {
     );
   });
 
+  it("prefers NEXT_PUBLIC_APP_URL over the current browser origin", async () => {
+    const sendEmailVerification = vi.fn().mockResolvedValue(undefined);
+    const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://preview.example.com",
+      },
+    });
+
+    process.env.NEXT_PUBLIC_APP_URL = "https://chat.example.com";
+
+    try {
+      await sendCurrentUserVerificationEmail({
+        currentUser: { email: "user@example.com" },
+        sendEmailVerification,
+      });
+
+      expect(sendEmailVerification).toHaveBeenCalledWith(
+        { email: "user@example.com" },
+        expect.objectContaining({
+          url: "https://chat.example.com/verify-email",
+          handleCodeInApp: false,
+        }),
+      );
+    } finally {
+      if (originalAppUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_APP_URL;
+      } else {
+        process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
+      }
+
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("surfaces a clear error when Firebase blocks the continue URL domain", async () => {
     const sendEmailVerification = vi.fn().mockRejectedValue({
       code: "auth/unauthorized-continue-uri",
