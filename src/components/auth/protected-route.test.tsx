@@ -68,6 +68,7 @@ describe("route guards", () => {
         user: {
           uid: "user-1",
           email: "user@example.com",
+          emailVerified: true,
           displayName: "User One",
           photoURL: null,
         },

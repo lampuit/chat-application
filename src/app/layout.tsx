@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/components/auth/auth-provider";
-import "./globals.css";
+import './globals.css';
 
 export const metadata: Metadata = {
   title: "Realtime Chat",
