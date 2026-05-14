@@ -123,4 +123,99 @@ describe("useChatData", () => {
       expect(getMessageListeners()).toHaveLength(1);
     });
   });
+
+  it("maps group conversations to their group name instead of a direct-chat fallback", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      listeners[0]?.callback({
+        docs: [
+          createDoc("user-1", {
+            email: "owner@example.com",
+            displayName: "Owner User",
+          }),
+          createDoc("user-2", {
+            email: "jane@example.com",
+            displayName: "Jane Doe",
+          }),
+          createDoc("user-3", {
+            email: "john@example.com",
+            displayName: "John Smith",
+          }),
+        ],
+      });
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("group-1", {
+            type: "group",
+            name: "Product Squad",
+            memberIds: ["user-1", "user-2", "user-3"],
+            lastMessageText: "",
+          }),
+        ],
+      });
+    });
+
+    expect(result.current.conversationItems).toEqual([
+      {
+        id: "group-1",
+        title: "Product Squad",
+        memberSummary: "3 members: Jane Doe, John Smith, +1",
+        lastMessageText: "No messages yet",
+      },
+    ]);
+  });
+
+  it("builds selected group details with full member names", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(listeners.length).toBeGreaterThan(0);
+    });
+
+    act(() => {
+      listeners[0]?.callback({
+        docs: [
+          createDoc("user-1", {
+            email: "owner@example.com",
+            displayName: "Owner User",
+          }),
+          createDoc("user-2", {
+            email: "jane@example.com",
+            displayName: "Jane Doe",
+          }),
+          createDoc("user-3", {
+            email: "john@example.com",
+            displayName: "John Smith",
+          }),
+        ],
+      });
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("group-1", {
+            type: "group",
+            name: "Product Squad",
+            memberIds: ["user-1", "user-2", "user-3"],
+            lastMessageText: "",
+          }),
+        ],
+      });
+    });
+
+    expect(result.current.selectedConversationDetails).toEqual({
+      id: "group-1",
+      title: "Product Squad",
+      subtitle: "Owner User, Jane Doe, John Smith",
+    });
+  });
 });

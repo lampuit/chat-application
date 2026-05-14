@@ -1,5 +1,7 @@
 type PendingConversation = {
   id: string;
+  type?: "direct" | "group";
+  name?: string;
   memberIds: string[];
   lastMessageText: string;
   lastMessageAt: null;
@@ -17,7 +19,24 @@ export function createPendingConversationRecord(
 ): PendingConversation {
   return {
     id: conversationId,
+    type: "direct",
     memberIds: [currentUserId, otherUserId].sort(),
+    lastMessageText: "",
+    lastMessageAt: null,
+  };
+}
+
+export function createPendingGroupConversationRecord(
+  conversationId: string,
+  currentUserId: string,
+  groupName: string,
+  memberIds: string[],
+): PendingConversation {
+  return {
+    id: conversationId,
+    type: "group",
+    name: groupName.trim(),
+    memberIds: Array.from(new Set([...memberIds, currentUserId])).sort(),
     lastMessageText: "",
     lastMessageAt: null,
   };

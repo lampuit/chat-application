@@ -49,7 +49,7 @@ export function MessageComposer({
   const displayedErrorMessage = localErrorMessage ?? errorMessage;
 
   return (
-    <div className="border-t border-black/5 bg-white/80 p-4 backdrop-blur-xl sm:p-5">
+    <div className="border-t border-slate-900/5 bg-[rgba(255,255,255,0.9)] p-4 backdrop-blur-xl sm:p-5">
       <form
         className="flex flex-col gap-3 sm:flex-row sm:items-center"
         onSubmit={(event) => {
@@ -60,8 +60,8 @@ export function MessageComposer({
           onSend();
         }}
       >
-        <div className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition-all focus-within:border-sky-300 focus-within:ring-4 focus-within:ring-sky-100">
-          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-50 hover:text-sky-600">
+        <div className="flex w-full items-center gap-2 rounded-[1.4rem] border border-slate-200/80 bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] transition-all focus-within:border-teal-300 focus-within:ring-4 focus-within:ring-teal-100">
+          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-slate-50 hover:text-teal-600">
             <input
               aria-label="Attach file"
               className="hidden"
@@ -103,7 +103,7 @@ export function MessageComposer({
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${
               isComposerDisabled || !value.trim()
                 ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                : "bg-sky-600 text-white hover:bg-sky-700 hover:shadow-md hover:shadow-sky-200 active:scale-95"
+                  : "bg-slate-950 text-white hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-[0_14px_28px_rgba(15,23,42,0.18)] active:translate-y-0"
             }`}
             disabled={isComposerDisabled || !value.trim()}
             type="submit"

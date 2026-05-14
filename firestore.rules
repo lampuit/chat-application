@@ -14,6 +14,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid in request.resource.data.memberIds;
     }
 
+    function isDirectConversationCreate() {
+      return request.resource.data.type == "direct"
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() == 2;
+    }
+
+    function isGroupConversationCreate() {
+      return request.resource.data.type == "group"
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() >= 2
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+    }
+
     function isConversationParticipant(conversationId) {
       return isSignedIn()
         && request.auth.uid in
@@ -28,9 +43,7 @@ service cloud.firestore {
     match /conversations/{conversationId} {
       allow read: if isConversationMember();
       allow create: if isConversationMemberOnCreate()
-        && request.resource.data.type == "direct"
-        && request.resource.data.memberIds is list
-        && request.resource.data.memberIds.size() == 2;
+        && (isDirectConversationCreate() || isGroupConversationCreate());
       allow update: if isConversationMember();
 
       match /messages/{messageId} {

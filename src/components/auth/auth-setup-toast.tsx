@@ -75,10 +75,10 @@ export function AuthSetupToast() {
       className="pointer-events-none fixed bottom-4 right-4 z-50 w-[min(26rem,calc(100vw-2rem))]"
       role="region"
     >
-      <div className="pointer-events-auto rounded-[2rem] border border-black/10 bg-white/95 p-5 shadow-[0_24px_80px_rgba(15,23,32,0.18)] backdrop-blur">
+      <div className="pointer-events-auto rounded-[2rem] border border-white/70 bg-white/92 p-5 shadow-[0_24px_80px_rgba(15,23,32,0.18)] backdrop-blur-xl">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-950">Verify your email</h2>
+            <h2 className="heading-font text-lg font-semibold tracking-[-0.04em] text-slate-950">Verify your email</h2>
             <p className="text-sm text-slate-600">
               Verify <span className="font-medium">{user.email}</span> before enabling
               Google Authenticator 2-step verification.
@@ -95,7 +95,7 @@ export function AuthSetupToast() {
         </div>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <button
-            className="rounded-2xl bg-sky-900 px-4 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:bg-slate-300 disabled:translate-y-0"
             disabled={isPending}
             onClick={handleResend}
             type="button"
@@ -103,7 +103,7 @@ export function AuthSetupToast() {
             {isPending ? "Sending..." : "Resend verification email"}
           </button>
           <button
-            className="rounded-2xl border border-black/10 bg-stone-50 px-4 py-3 text-sm font-medium text-slate-900 disabled:bg-slate-100"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 transition-all hover:-translate-y-0.5 hover:bg-white disabled:bg-slate-100 disabled:translate-y-0"
             disabled={isPending}
             onClick={handleRefresh}
             type="button"

@@ -19,7 +19,6 @@ export function TwoFactorSettings() {
   const [isPending, startTransition] = useTransition();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hasTotpEnrollment = Boolean(user?.hasTotpEnrollment);
-  const enabledMessage = successMessage ?? (hasTotpEnrollment ? "2-step verification is now enabled." : null);
 
   useEffect(() => {
     if (!setup || !canvasRef.current) {
@@ -32,6 +31,10 @@ export function TwoFactorSettings() {
   }, [setup]);
 
   if (!user) {
+    return null;
+  }
+
+  if (hasTotpEnrollment) {
     return null;
   }
 
@@ -84,10 +87,10 @@ export function TwoFactorSettings() {
   }
 
   return (
-    <section className="rounded-3xl border border-black/10 bg-white/80 p-5 shadow-sm">
+    <section className="rounded-3xl border border-white/70 bg-[rgba(255,255,255,0.8)] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur-xl">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-slate-900">2-step verification</h2>
+          <h2 className="heading-font text-lg font-semibold tracking-[-0.04em] text-slate-950">2-step verification</h2>
           <p className="text-sm text-slate-600">
             Protect your account with a 6-digit code from Google Authenticator.
           </p>
@@ -109,12 +112,12 @@ export function TwoFactorSettings() {
         </p>
       ) : null}
 
-      {user.emailVerified && !setup && !enabledMessage ? (
+      {user.emailVerified && !setup ? (
         <div className="mt-4 space-y-3">
           <label className="block space-y-2">
             <span className="text-sm font-medium text-slate-700">Current password</span>
             <input
-              className="w-full rounded-2xl border border-black/10 bg-stone-50 px-4 py-3 text-sm outline-none"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm outline-none transition focus:border-teal-300 focus:bg-white focus:ring-4 focus:ring-teal-100"
               autoComplete="current-password"
               onChange={(event) => setCurrentPassword(event.target.value)}
               required
@@ -127,7 +130,7 @@ export function TwoFactorSettings() {
             authenticator secret.
           </p>
           <button
-            className="rounded-2xl bg-sky-900 px-4 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:bg-slate-300 disabled:translate-y-0"
             disabled={isPending}
             onClick={handleStartSetup}
             type="button"
@@ -142,11 +145,11 @@ export function TwoFactorSettings() {
           <div className="rounded-3xl border border-black/10 bg-stone-50 p-4">
             <canvas
               aria-label="Google Authenticator QR code"
-              className="mx-auto rounded-2xl bg-white p-3"
+              className="mx-auto rounded-2xl bg-white p-3 shadow-sm"
               ref={canvasRef}
             />
           </div>
-          <div className="rounded-2xl border border-black/10 bg-stone-50 px-4 py-3 text-sm text-slate-700">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
             <p className="font-medium text-slate-900">Manual setup key</p>
             <p className="mt-2 break-all font-mono">{setup.secretKey}</p>
           </div>
@@ -164,7 +167,7 @@ export function TwoFactorSettings() {
             />
           </label>
           <button
-            className="w-full rounded-2xl bg-sky-900 px-5 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+            className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:bg-slate-300 disabled:translate-y-0"
             disabled={isPending}
             type="submit"
           >
@@ -173,16 +176,7 @@ export function TwoFactorSettings() {
         </form>
       ) : null}
 
-      {enabledMessage ? <p className="mt-4 text-sm text-emerald-700">{enabledMessage}</p> : null}
-      {hasTotpEnrollment ? (
-        <button
-          className="mt-4 rounded-2xl border border-black/10 bg-stone-100 px-4 py-3 text-sm font-medium text-slate-400"
-          disabled
-          type="button"
-        >
-          Turn off 2-step verification
-        </button>
-      ) : null}
+      {successMessage ? <p className="mt-4 text-sm text-emerald-700">{successMessage}</p> : null}
       {error ? <p className="mt-4 text-sm text-rose-600">{error}</p> : null}
     </section>
   );

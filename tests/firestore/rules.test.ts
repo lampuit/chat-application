@@ -15,6 +15,13 @@ describe("firestore rules", () => {
     expect(rules).toContain('request.resource.data.type == "direct"');
   });
 
+  it("allows group conversations only when the creator is the owner and a member", () => {
+    expect(rules).toContain('request.resource.data.type == "group"');
+    expect(rules).toContain("request.resource.data.ownerId == request.auth.uid");
+    expect(rules).toContain("request.resource.data.name is string");
+    expect(rules).toContain("request.resource.data.name.size() > 0");
+  });
+
   it("requires messages to match the authenticated sender and conversation", () => {
     expect(rules).toContain("request.resource.data.senderId == request.auth.uid");
     expect(rules).toContain(

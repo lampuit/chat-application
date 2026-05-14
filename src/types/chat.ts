@@ -12,16 +12,28 @@ export type UserProfile = {
   lastSeenAt: FirestoreTimestamp;
 };
 
-export type Conversation = {
-  type: "direct";
-  memberIds: [string, string];
-  memberKey: string;
-  lastMessageText: string;
-  lastMessageSenderId: string;
-  lastMessageAt: FirestoreTimestamp;
-  createdAt: FirestoreTimestamp;
-  updatedAt: FirestoreTimestamp;
-};
+export type Conversation =
+  | {
+      type: "direct";
+      memberIds: [string, string];
+      memberKey: string;
+      lastMessageText: string;
+      lastMessageSenderId: string;
+      lastMessageAt: FirestoreTimestamp;
+      createdAt: FirestoreTimestamp;
+      updatedAt: FirestoreTimestamp;
+    }
+  | {
+      type: "group";
+      name: string;
+      ownerId: string;
+      memberIds: string[];
+      lastMessageText: string;
+      lastMessageSenderId: string;
+      lastMessageAt: FirestoreTimestamp;
+      createdAt: FirestoreTimestamp;
+      updatedAt: FirestoreTimestamp;
+    };
 
 export type Message =
   | {
