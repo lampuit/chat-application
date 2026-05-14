@@ -15,7 +15,7 @@ import {
 
 describe("buildUserProfile", () => {
   it("builds a mirrored Firestore user profile with server-managed timestamps", () => {
-    const timestampToken = { ".sv": "serverTimestamp" };
+    const timestampToken = { ".sv": "serverTimestamp" } as any;
 
     expect(
       buildUserProfile(
@@ -43,7 +43,7 @@ describe("syncUserProfile", () => {
   it("writes the profile document with merge semantics", async () => {
     const setDoc = vi.fn().mockResolvedValue(undefined);
     const doc = vi.fn().mockReturnValue("users/user-1");
-    const timestampToken = { ".sv": "serverTimestamp" };
+    const timestampToken = { ".sv": "serverTimestamp" } as any;
 
     await syncUserProfile(
       {
@@ -79,7 +79,7 @@ describe("syncUserProfile", () => {
   it("uses the Firebase auth email local part when displayName is missing", async () => {
     const setDoc = vi.fn().mockResolvedValue(undefined);
     const doc = vi.fn().mockReturnValue("users/user-2");
-    const timestampToken = { ".sv": "serverTimestamp" };
+    const timestampToken = { ".sv": "serverTimestamp" } as any;
 
     const credential = {
       user: {
@@ -308,10 +308,21 @@ describe("finalizeTotpEnrollment", () => {
     const getMultiFactorUser = vi.fn().mockReturnValue({
       enroll,
     });
+    const generateQrCodeUrl = vi.fn().mockReturnValue("otpauth://totp/chat-app");
+    const secret = {
+      secretKey: "SECRET123",
+      codeLength: 6,
+      codeIntervalSeconds: 30,
+      generateQrCodeUrl,
+      sessionInfo: "session-info",
+      auth: "auth-instance",
+      hashingAlgorithm: "SHA1",
+      enrollmentCompletionDeadline: new Date(),
+    };
 
     await finalizeTotpEnrollment(
       {
-        secret: { secretKey: "SECRET123" },
+        secret,
         verificationCode: "123456",
         displayName: "Google Authenticator",
       },
@@ -327,7 +338,7 @@ describe("finalizeTotpEnrollment", () => {
 
     expect(getMultiFactorUser).toHaveBeenCalled();
     expect(assertionForEnrollment).toHaveBeenCalledWith(
-      { secretKey: "SECRET123" },
+      secret,
       "123456",
     );
     expect(enroll).toHaveBeenCalledWith(assertion, "Google Authenticator");
