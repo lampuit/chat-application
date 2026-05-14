@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import type { User } from "firebase/auth";
+import { multiFactor, TotpMultiFactorGenerator, type User } from "firebase/auth";
 import type { AuthStatus, AuthUserSummary } from "@/types/auth";
 
 type AuthContextValue = {
@@ -20,10 +20,16 @@ function mapAuthUser(user: User | null): AuthUserSummary | null {
     return null;
   }
 
+  const enrolledFactors = multiFactor(user).enrolledFactors ?? [];
+  const hasTotpEnrollment = enrolledFactors.some(
+    (factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID,
+  );
+
   return {
     uid: user.uid,
     email: user.email,
     emailVerified: user.emailVerified,
+    hasTotpEnrollment,
     displayName: user.displayName,
     photoURL: user.photoURL,
   };

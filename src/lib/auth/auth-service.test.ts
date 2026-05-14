@@ -144,9 +144,43 @@ describe("registerWithEmailAndPassword", () => {
 });
 
 describe("startTotpEnrollment", () => {
+  it("re-authenticates the current user before creating a TOTP secret", async () => {
+    const credential = { providerId: "password" };
+    const emailProviderCredential = vi.fn().mockReturnValue(credential);
+    const reauthenticateWithCredential = vi.fn().mockResolvedValue(undefined);
+    const getSession = vi.fn().mockResolvedValue("mfa-session");
+    const generateQrCodeUrl = vi.fn().mockReturnValue("otpauth://totp/chat-app");
+    const generateSecret = vi.fn().mockResolvedValue({
+      secretKey: "SECRET123",
+      codeLength: 6,
+      codeIntervalSeconds: 30,
+      generateQrCodeUrl,
+    });
+    const getMultiFactorUser = vi.fn().mockReturnValue({
+      getSession,
+    });
+    const currentUser = {
+      email: "user@example.com",
+      emailVerified: true,
+    };
+
+    await startTotpEnrollment("secret123", {
+      currentUser,
+      emailProviderCredential,
+      reauthenticateWithCredential,
+      getMultiFactorUser,
+      generateSecret,
+      issuer: "Chat App",
+    });
+
+    expect(emailProviderCredential).toHaveBeenCalledWith("user@example.com", "secret123");
+    expect(reauthenticateWithCredential).toHaveBeenCalledWith(currentUser, credential);
+    expect(getSession).toHaveBeenCalled();
+  });
+
   it("rejects enrollment when the signed-in user's email is not verified", async () => {
     await expect(
-      startTotpEnrollment({
+      startTotpEnrollment("secret123", {
         currentUser: {
           email: "user@example.com",
           emailVerified: false,
@@ -156,6 +190,8 @@ describe("startTotpEnrollment", () => {
   });
 
   it("returns a secret key and QR code URL for verified users", async () => {
+    const emailProviderCredential = vi.fn().mockReturnValue("password-credential");
+    const reauthenticateWithCredential = vi.fn().mockResolvedValue(undefined);
     const getSession = vi.fn().mockResolvedValue("mfa-session");
     const generateQrCodeUrl = vi.fn().mockReturnValue("otpauth://totp/chat-app");
     const generateSecret = vi.fn().mockResolvedValue({
@@ -168,11 +204,13 @@ describe("startTotpEnrollment", () => {
       getSession,
     });
 
-    const setup = await startTotpEnrollment({
+    const setup = await startTotpEnrollment("secret123", {
       currentUser: {
         email: "user@example.com",
         emailVerified: true,
       },
+      emailProviderCredential,
+      reauthenticateWithCredential,
       getMultiFactorUser,
       generateSecret,
       issuer: "Chat App",
@@ -191,6 +229,8 @@ describe("startTotpEnrollment", () => {
   });
 
   it("surfaces a clear error when TOTP MFA is not enabled in Firebase", async () => {
+    const emailProviderCredential = vi.fn().mockReturnValue("password-credential");
+    const reauthenticateWithCredential = vi.fn().mockResolvedValue(undefined);
     const getSession = vi.fn().mockResolvedValue("mfa-session");
     const generateSecret = vi.fn().mockRejectedValue({
       code: "auth/operation-not-allowed",
@@ -200,16 +240,62 @@ describe("startTotpEnrollment", () => {
     });
 
     await expect(
-      startTotpEnrollment({
+      startTotpEnrollment("secret123", {
         currentUser: {
           email: "user@example.com",
           emailVerified: true,
         },
+        emailProviderCredential,
+        reauthenticateWithCredential,
         getMultiFactorUser,
         generateSecret,
       }),
     ).rejects.toThrow(
       "Google Authenticator 2-step verification is not enabled in Firebase.",
+    );
+  });
+
+  it("normalizes REST-style Firebase errors when TOTP MFA is disabled", async () => {
+    const emailProviderCredential = vi.fn().mockReturnValue("password-credential");
+    const reauthenticateWithCredential = vi.fn().mockResolvedValue(undefined);
+    const getSession = vi.fn().mockResolvedValue("mfa-session");
+    const generateSecret = vi.fn().mockRejectedValue({
+      error: {
+        code: 400,
+        message: "OPERATION_NOT_ALLOWED : TOTP based MFA not enabled.",
+        status: "INVALID_ARGUMENT",
+      },
+    });
+    const getMultiFactorUser = vi.fn().mockReturnValue({
+      getSession,
+    });
+
+    await expect(
+      startTotpEnrollment("secret123", {
+        currentUser: {
+          email: "user@example.com",
+          emailVerified: true,
+        },
+        emailProviderCredential,
+        reauthenticateWithCredential,
+        getMultiFactorUser,
+        generateSecret,
+      }),
+    ).rejects.toThrow(
+      "Google Authenticator 2-step verification is not enabled in Firebase.",
+    );
+  });
+
+  it("asks for the current password before starting setup", async () => {
+    await expect(
+      startTotpEnrollment("", {
+        currentUser: {
+          email: "user@example.com",
+          emailVerified: true,
+        },
+      }),
+    ).rejects.toThrow(
+      "Enter your current password to continue setting up 2-step verification.",
     );
   });
 });

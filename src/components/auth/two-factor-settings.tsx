@@ -10,13 +10,17 @@ import { useAuth } from "@/components/auth/auth-provider";
 import type { TotpEnrollment } from "@/types/auth";
 
 export function TwoFactorSettings() {
-  const { user } = useAuth();
+  const { refreshUser, user } = useAuth();
   const [setup, setSetup] = useState<TotpEnrollment | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hasTotpEnrollment = Boolean(user?.hasTotpEnrollment);
+  const isProfileReady = Boolean(user?.displayName);
+  const enabledMessage = successMessage ?? (hasTotpEnrollment ? "2-step verification is now enabled." : null);
 
   useEffect(() => {
     if (!setup || !canvasRef.current) {
@@ -32,14 +36,19 @@ export function TwoFactorSettings() {
     return null;
   }
 
+  if (isProfileReady) {
+    return null;
+  }
+
   function handleStartSetup() {
     setError(null);
     setSuccessMessage(null);
 
     startTransition(async () => {
       try {
-        const nextSetup = await startTotpEnrollment();
+        const nextSetup = await startTotpEnrollment(currentPassword);
         setSetup(nextSetup);
+        setCurrentPassword("");
       } catch (setupError) {
         setError(
           setupError instanceof Error
@@ -65,6 +74,7 @@ export function TwoFactorSettings() {
           verificationCode,
           displayName: "Google Authenticator",
         });
+        await refreshUser?.();
         setSetup(null);
         setVerificationCode("");
         setSuccessMessage("2-step verification is now enabled.");
@@ -93,15 +103,32 @@ export function TwoFactorSettings() {
         </p>
       ) : null}
 
-      {user.emailVerified && !setup && !successMessage ? (
-        <button
-          className="mt-4 rounded-2xl bg-sky-900 px-4 py-3 text-sm font-medium text-white disabled:bg-slate-300"
-          disabled={isPending}
-          onClick={handleStartSetup}
-          type="button"
-        >
-          {isPending ? "Preparing setup..." : "Set up Google Authenticator"}
-        </button>
+      {user.emailVerified && !setup && !enabledMessage ? (
+        <div className="mt-4 space-y-3">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-slate-700">Current password</span>
+            <input
+              className="w-full rounded-2xl border border-black/10 bg-stone-50 px-4 py-3 text-sm outline-none"
+              autoComplete="current-password"
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              required
+              type="password"
+              value={currentPassword}
+            />
+          </label>
+          <p className="text-sm text-slate-600">
+            Firebase requires you to confirm your password before generating a new
+            authenticator secret.
+          </p>
+          <button
+            className="rounded-2xl bg-sky-900 px-4 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+            disabled={isPending}
+            onClick={handleStartSetup}
+            type="button"
+          >
+            {isPending ? "Preparing setup..." : "Set up Google Authenticator"}
+          </button>
+        </div>
       ) : null}
 
       {setup ? (
@@ -140,7 +167,7 @@ export function TwoFactorSettings() {
         </form>
       ) : null}
 
-      {successMessage ? <p className="mt-4 text-sm text-emerald-700">{successMessage}</p> : null}
+      {enabledMessage ? <p className="mt-4 text-sm text-emerald-700">{enabledMessage}</p> : null}
       {error ? <p className="mt-4 text-sm text-rose-600">{error}</p> : null}
     </section>
   );

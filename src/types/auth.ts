@@ -6,6 +6,7 @@ export type AuthUserSummary = {
   uid: string;
   email: string | null;
   emailVerified: boolean;
+  hasTotpEnrollment?: boolean;
   displayName: string | null;
   photoURL: string | null;
 };

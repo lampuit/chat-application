@@ -45,7 +45,7 @@ If verification emails still do not send, the most common Firebase cause is an u
 2. The app sends a verification email immediately after account creation.
 3. Click the email link and let Firebase return to `/verify-email`.
 4. Sign in and refresh verification status if needed.
-5. Enable Google Authenticator 2-step verification from `/chat`.
+5. Re-enter your current password and enable Google Authenticator 2-step verification from `/chat`.
 6. On later sign-ins, complete the TOTP challenge with your 6-digit code.
 
 ## Out of Scope for Core Version

@@ -24,7 +24,15 @@ vi.mock("@/lib/auth/auth-service", () => ({
   finalizeTotpEnrollment,
 }));
 
-function renderSettings(emailVerified: boolean) {
+function renderSettings({
+  emailVerified,
+  hasTotpEnrollment = false,
+  displayName = null,
+}: {
+  emailVerified: boolean;
+  hasTotpEnrollment?: boolean;
+  displayName?: string | null;
+}) {
   return render(
     <AuthContext.Provider
       value={{
@@ -33,7 +41,8 @@ function renderSettings(emailVerified: boolean) {
           uid: "user-1",
           email: "user@example.com",
           emailVerified,
-          displayName: "User One",
+          hasTotpEnrollment,
+          displayName,
           photoURL: null,
         },
       }}
@@ -49,7 +58,7 @@ describe("TwoFactorSettings", () => {
   });
 
   it("blocks enrollment when the user's email is not verified", () => {
-    renderSettings(false);
+    renderSettings({ emailVerified: false });
 
     expect(
       screen.getByText("Verify your email before enabling 2-step verification."),
@@ -71,14 +80,16 @@ describe("TwoFactorSettings", () => {
 
     startTotpEnrollment.mockResolvedValue(setup);
 
-    renderSettings(true);
+    renderSettings({ emailVerified: true });
 
+    await user.type(screen.getByLabelText("Current password"), "secret123");
     await user.click(screen.getByRole("button", { name: "Set up Google Authenticator" }));
 
     expect(await screen.findByText("SECRET123")).toBeInTheDocument();
     expect(screen.getByLabelText("Authenticator code")).toBeInTheDocument();
 
     await waitFor(() => {
+      expect(startTotpEnrollment).toHaveBeenCalledWith("secret123");
       expect(renderQrCodeToCanvas).toHaveBeenCalled();
     });
 
@@ -98,5 +109,24 @@ describe("TwoFactorSettings", () => {
     expect(
       await screen.findByText("2-step verification is now enabled."),
     ).toBeInTheDocument();
+  });
+
+  it("shows the enabled state when TOTP is already enrolled", () => {
+    renderSettings({ emailVerified: true, hasTotpEnrollment: true });
+
+    expect(screen.getByText("2-step verification is now enabled.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Set up Google Authenticator" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
+  });
+
+  it("hides 2-step verification when the profile is ready", () => {
+    renderSettings({ emailVerified: true, displayName: "User One" });
+
+    expect(screen.queryByText("2-step verification")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Set up Google Authenticator" }),
+    ).not.toBeInTheDocument();
   });
 });

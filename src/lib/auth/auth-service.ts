@@ -1,8 +1,10 @@
 import {
   applyActionCode,
+  EmailAuthProvider,
   getMultiFactorResolver,
   multiFactor,
   createUserWithEmailAndPassword,
+  reauthenticateWithCredential,
   reload,
   sendEmailVerification,
   signInWithEmailAndPassword,
@@ -36,6 +38,26 @@ function getFirebaseAuthErrorCode(error: unknown) {
     typeof error.code === "string"
   ) {
     return error.code;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "error" in error &&
+    typeof error.error === "object" &&
+    error.error !== null &&
+    "message" in error.error &&
+    typeof error.error.message === "string"
+  ) {
+    const nestedMessage = error.error.message;
+
+    if (nestedMessage.includes("OPERATION_NOT_ALLOWED")) {
+      return "auth/operation-not-allowed";
+    }
+
+    if (nestedMessage.includes("INVALID_LOGIN_CREDENTIALS")) {
+      return "auth/invalid-credential";
+    }
   }
 
   return null;
@@ -183,6 +205,16 @@ function normalizeTotpError(error: unknown) {
     return new Error(
       "The Google Authenticator code has expired. Enter the newest 6-digit code and try again.",
     );
+  }
+
+  if (errorCode === "auth/requires-recent-login") {
+    return new Error(
+      "Re-enter your current password before setting up Google Authenticator 2-step verification.",
+    );
+  }
+
+  if (errorCode === "auth/wrong-password" || errorCode === "auth/invalid-credential") {
+    return new Error("Your current password is incorrect.");
   }
 
   return error instanceof Error
@@ -340,19 +372,41 @@ type StartTotpEnrollmentDeps = {
   currentUser: FirebaseTotpUserLike;
   getMultiFactorUser: typeof multiFactor;
   generateSecret: typeof TotpMultiFactorGenerator.generateSecret;
+  emailProviderCredential: typeof EmailAuthProvider.credential;
+  reauthenticateWithCredential: typeof reauthenticateWithCredential;
   issuer: string;
 };
 
 export async function startTotpEnrollment(
+  currentPassword: string,
   deps?: Partial<StartTotpEnrollmentDeps>,
 ): Promise<TotpEnrollment> {
   const currentUser = deps?.currentUser ?? (await getCurrentUser());
   const getMultiFactorUser = deps?.getMultiFactorUser ?? multiFactor;
   const generateSecret = deps?.generateSecret ?? TotpMultiFactorGenerator.generateSecret;
+  const emailProviderCredential =
+    deps?.emailProviderCredential ?? EmailAuthProvider.credential;
+  const reauthenticateUser =
+    deps?.reauthenticateWithCredential ?? reauthenticateWithCredential;
   const issuer = deps?.issuer ?? "Chat App";
 
   if (!currentUser.emailVerified) {
     throw new Error("Verify your email before enabling 2-step verification.");
+  }
+
+  if (!currentPassword.trim()) {
+    throw new Error("Enter your current password to continue setting up 2-step verification.");
+  }
+
+  if (!currentUser.email) {
+    throw new Error("Your account is missing an email address required for 2-step verification.");
+  }
+
+  try {
+    const credential = emailProviderCredential(currentUser.email, currentPassword);
+    await reauthenticateUser(currentUser as User, credential);
+  } catch (error) {
+    throw normalizeTotpError(error);
   }
 
   let multiFactorSession: Awaited<ReturnType<ReturnType<typeof multiFactor>["getSession"]>>;
