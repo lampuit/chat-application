@@ -1,8 +1,12 @@
 import { useRef, useState, useTransition } from "react";
-import { createDirectConversationWithFirstMessage } from "@/lib/chat/conversations";
+import {
+  createDirectConversationWithFirstMessage,
+  createGroupConversation,
+} from "@/lib/chat/conversations";
 import { buildDirectMemberKey } from "@/lib/chat/member-key";
 import { sendMessageToConversation } from "@/lib/chat/messages";
 import {
+  createPendingGroupConversationRecord,
   createPendingConversationRecord,
   createPendingConversationTracker,
 } from "@/lib/chat/pending-conversations";
@@ -76,6 +80,37 @@ export function useChatActions({
     await writePromise;
   }
 
+  async function handleCreateGroup(input: {
+    groupName: string;
+    memberIds: string[];
+  }) {
+    if (!currentUserId) return;
+
+    const conversationId = crypto.randomUUID();
+    setConversations((currentConversations) => [
+      createPendingGroupConversationRecord(
+        conversationId,
+        currentUserId,
+        input.groupName,
+        input.memberIds,
+      ),
+      ...currentConversations.filter((conversation) => conversation.id !== conversationId),
+    ]);
+    setSelectedConversationId(conversationId);
+
+    const writePromise = createGroupConversation({
+      conversationId,
+      currentUserId,
+      groupName: input.groupName,
+      memberIds: input.memberIds,
+    });
+    await pendingConversationTrackerRef.current.trackWrite(conversationId, writePromise);
+  }
+
+  function getSelectedConversation() {
+    return conversations.find((conversation) => conversation.id === selectedConversationId);
+  }
+
   function getOtherUserIdForConversation(conversationId: string) {
     return pendingConversationTrackerRef.current.resolveOtherUserId(
       conversationId,
@@ -111,6 +146,9 @@ export function useChatActions({
           await pendingConversationTrackerRef.current.waitForWrite(selectedConversationId);
         }
 
+        const selectedConversation = getSelectedConversation();
+        const isExistingGroupConversation = selectedConversation?.type === "group";
+
         if (file) {
           setIsUploading(true);
           const { getDownloadURL, ref: storageRef, uploadBytes, getStorage } = await import(
@@ -132,7 +170,7 @@ export function useChatActions({
           await uploadBytes(fileRef, file as Blob);
           const url = await getDownloadURL(fileRef);
 
-          if (!hasMessages) {
+          if (!hasMessages && !isExistingGroupConversation) {
             await createDirectConversationWithFirstMessage({
               conversationId: selectedConversationId,
               currentUserId,
@@ -160,7 +198,7 @@ export function useChatActions({
 
         if (!nextMessage) return;
 
-        if (!hasMessages) {
+        if (!hasMessages && !isExistingGroupConversation) {
           await createDirectConversationWithFirstMessage({
             conversationId: selectedConversationId,
             currentUserId,
@@ -192,6 +230,7 @@ export function useChatActions({
     isUploading,
     isPending,
     handleStartConversation,
+    handleCreateGroup,
     handleSendMessage,
   };
 }

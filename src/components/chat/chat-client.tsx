@@ -3,12 +3,14 @@
 import React from "react";
 import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
 import { ChatShell } from "@/components/chat/chat-shell";
+import { CreateGroupModal } from "@/components/chat/create-group-modal";
 import { useAuth } from "@/components/auth/auth-provider";
 import { logout } from "@/lib/auth/auth-service";
 import { useChatData } from "./use-chat-data";
 import { useChatActions } from "./use-chat-actions";
 
 export function ChatClient() {
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = React.useState(false);
   const { user } = useAuth();
   const currentUser = user;
   const currentUserId = currentUser?.uid ?? null;
@@ -21,6 +23,7 @@ export function ChatClient() {
     selectedConversationId,
     setSelectedConversationId,
     conversationItems,
+    selectedConversationDetails,
     messageItems,
   } = useChatData(currentUserId);
 
@@ -31,6 +34,7 @@ export function ChatClient() {
     isUploading,
     isPending,
     handleStartConversation,
+    handleCreateGroup,
     handleSendMessage,
   } = useChatActions({
     currentUserId,
@@ -96,14 +100,23 @@ export function ChatClient() {
           currentUserId={currentUserId}
           draftMessage={draftMessage}
           messages={messageItems}
+          selectedConversationDetails={selectedConversationDetails}
           errorMessage={uploadError}
           isUploading={isUploading}
           onDraftMessageChange={setDraftMessage}
+          onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
           onSelectConversation={setSelectedConversationId}
           onSendMessage={handleSendMessage}
           onStartConversation={(otherUserId) => void handleStartConversation(otherUserId)}
           selectedConversationId={selectedConversationId}
           users={users}
+        />
+        <CreateGroupModal
+          isOpen={isCreateGroupOpen}
+          isSubmitting={isPending}
+          onClose={() => setIsCreateGroupOpen(false)}
+          onCreateGroup={handleCreateGroup}
+          users={users.filter((entry) => entry.uid !== currentUserId)}
         />
       </div>
       {isPending ? <p className="shrink-0 text-sm text-slate-500">Sending...</p> : null}

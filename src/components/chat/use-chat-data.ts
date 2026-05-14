@@ -8,9 +8,25 @@ export type UserRecord = {
 
 export type ConversationRecord = {
   id: string;
+  type?: "direct" | "group";
+  name?: string;
+  ownerId?: string;
   memberIds: string[];
   lastMessageText: string;
   lastMessageAt?: { toDate?: () => Date } | null;
+};
+
+type ConversationItem = {
+  id: string;
+  title: string;
+  memberSummary?: string;
+  lastMessageText: string;
+};
+
+type SelectedConversationDetails = {
+  id: string;
+  title: string;
+  subtitle: string;
 };
 
 export type MessageRecord = {
@@ -142,8 +158,41 @@ export function useChatData(currentUserId: string | null) {
     };
   }, [selectedConversationExists, selectedConversationId]);
 
-  const conversationItems = useMemo(() => {
+  function getMemberLabels(memberIds: string[]) {
+    return memberIds.map((memberId) => {
+      const user = users.find((entry) => entry.uid === memberId);
+
+      return user?.displayName ?? user?.email ?? "Unknown user";
+    });
+  }
+
+  const conversationItems = useMemo<ConversationItem[]>(() => {
     return conversations.map((conversation) => {
+      if (conversation.type === "group") {
+        const memberLabels = getMemberLabels(conversation.memberIds);
+        const otherMemberLabels = conversation.memberIds
+          .filter((memberId) => memberId !== currentUserId)
+          .map((memberId) => {
+            const user = users.find((entry) => entry.uid === memberId);
+
+            return user?.displayName ?? user?.email ?? "Unknown user";
+          });
+        const previewSource = otherMemberLabels.length > 0 ? otherMemberLabels : memberLabels;
+        const previewMembersText = previewSource.slice(0, 2).join(", ");
+        const remainingCount = Math.max(memberLabels.length - 2, 0);
+        const memberSummary =
+          remainingCount > 0
+            ? `${memberLabels.length} members: ${previewMembersText}, +${remainingCount}`
+            : `${memberLabels.length} members: ${previewMembersText}`;
+
+        return {
+          id: conversation.id,
+          title: conversation.name?.trim() || "Group chat",
+          memberSummary,
+          lastMessageText: conversation.lastMessageText || "No messages yet",
+        };
+      }
+
       const otherUserId =
         conversation.memberIds.find((memberId) => memberId !== currentUserId) ?? null;
       const otherUser = users.find((entry) => entry.uid === otherUserId);
@@ -155,6 +204,38 @@ export function useChatData(currentUserId: string | null) {
       };
     });
   }, [conversations, currentUserId, users]);
+
+  const selectedConversationDetails = useMemo<SelectedConversationDetails | null>(() => {
+    if (!selectedConversationId) {
+      return null;
+    }
+
+    const selectedConversation = conversations.find(
+      (conversation) => conversation.id === selectedConversationId,
+    );
+
+    if (!selectedConversation) {
+      return null;
+    }
+
+    if (selectedConversation.type === "group") {
+      return {
+        id: selectedConversation.id,
+        title: selectedConversation.name?.trim() || "Group chat",
+        subtitle: getMemberLabels(selectedConversation.memberIds).join(", "),
+      };
+    }
+
+    const otherUserId =
+      selectedConversation.memberIds.find((memberId) => memberId !== currentUserId) ?? null;
+    const otherUser = users.find((entry) => entry.uid === otherUserId);
+
+    return {
+      id: selectedConversation.id,
+      title: otherUser?.displayName ?? otherUser?.email ?? "Direct chat",
+      subtitle: otherUser?.email ?? "Direct conversation",
+    };
+  }, [conversations, currentUserId, selectedConversationId, users]);
 
   const messageItems = useMemo(() => {
     return messages.map((message) => {
@@ -191,6 +272,7 @@ export function useChatData(currentUserId: string | null) {
     selectedConversationId,
     setSelectedConversationId,
     conversationItems,
+    selectedConversationDetails,
     messageItems,
   };
 }

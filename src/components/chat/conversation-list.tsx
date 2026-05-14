@@ -4,6 +4,7 @@ type ConversationListProps = {
   conversations: Array<{
     id: string;
     title: string;
+    memberSummary?: string;
     lastMessageText: string;
   }>;
   selectedConversationId: string | null;
@@ -58,6 +59,11 @@ export function ConversationList({
                     }`}>
                       {conversation.title}
                     </span>
+                    {conversation.memberSummary ? (
+                      <span className="block truncate text-[11px] text-slate-500">
+                        {conversation.memberSummary}
+                      </span>
+                    ) : null}
                     <span className={`block truncate text-xs ${
                       isSelected ? "text-sky-600" : "text-slate-500"
                     }`}>

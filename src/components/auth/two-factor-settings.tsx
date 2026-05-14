@@ -174,15 +174,7 @@ export function TwoFactorSettings() {
       ) : null}
 
       {enabledMessage ? <p className="mt-4 text-sm text-emerald-700">{enabledMessage}</p> : null}
-      {hasTotpEnrollment ? (
-        <button
-          className="mt-4 rounded-2xl border border-black/10 bg-stone-100 px-4 py-3 text-sm font-medium text-slate-400"
-          disabled
-          type="button"
-        >
-          Turn off 2-step verification
-        </button>
-      ) : null}
+    
       {error ? <p className="mt-4 text-sm text-rose-600">{error}</p> : null}
     </section>
   );

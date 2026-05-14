@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createDirectConversationWithFirstMessage,
+  createGroupConversation,
+  createGroupConversationRecord,
   createMessageRecord,
 } from "@/lib/chat/conversations";
 
@@ -100,6 +102,72 @@ describe("createDirectConversationWithFirstMessage", () => {
         conversationId: "conversation-1",
         senderId: "user-b",
         text: "Hello",
+      }),
+    );
+    expect(commit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createGroupConversationRecord", () => {
+  it("creates a named group conversation with sorted unique members and empty last message state", () => {
+    const timestampToken = { ".sv": "serverTimestamp" };
+
+    expect(
+      createGroupConversationRecord(
+        {
+          currentUserId: "user-c",
+          groupName: "Project Crew",
+          memberIds: ["user-b", "user-a", "user-b"],
+        },
+        timestampToken,
+      ),
+    ).toEqual({
+      type: "group",
+      name: "Project Crew",
+      ownerId: "user-c",
+      memberIds: ["user-a", "user-b", "user-c"],
+      lastMessageText: "",
+      lastMessageSenderId: "",
+      lastMessageAt: timestampToken,
+      createdAt: timestampToken,
+      updatedAt: timestampToken,
+    });
+  });
+});
+
+describe("createGroupConversation", () => {
+  it("writes a group conversation document without creating an initial message", async () => {
+    const set = vi.fn();
+    const commit = vi.fn().mockResolvedValue(undefined);
+    const writeBatch = vi.fn().mockReturnValue({ set, commit });
+    const doc = vi.fn().mockReturnValue("conversation-ref");
+    const serverTimestamp = vi.fn(() => ({ ".sv": "serverTimestamp" }));
+
+    await createGroupConversation(
+      {
+        conversationId: "group-1",
+        currentUserId: "user-c",
+        groupName: "Project Crew",
+        memberIds: ["user-b", "user-a"],
+      },
+      {
+        db: "db-instance",
+        doc,
+        writeBatch,
+        serverTimestamp,
+      },
+    );
+
+    expect(set).toHaveBeenCalledTimes(1);
+    expect(set).toHaveBeenCalledWith(
+      "conversation-ref",
+      expect.objectContaining({
+        type: "group",
+        name: "Project Crew",
+        ownerId: "user-c",
+        memberIds: ["user-a", "user-b", "user-c"],
+        lastMessageText: "",
+        lastMessageSenderId: "",
       }),
     );
     expect(commit).toHaveBeenCalledTimes(1);

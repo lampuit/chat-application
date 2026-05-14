@@ -17,6 +17,13 @@ type CreateConversationInput = {
   fileSize?: number;
 };
 
+type CreateGroupConversationInput = {
+  conversationId: string;
+  currentUserId: string;
+  groupName: string;
+  memberIds: string[];
+};
+
 type ConversationWriteDeps = {
   db: unknown;
   doc: typeof firestoreDoc;
@@ -89,6 +96,27 @@ export function createConversationRecord(
   };
 }
 
+export function createGroupConversationRecord(
+  input: CreateGroupConversationInput,
+  timestamp: FirestoreTimestamp,
+): Conversation {
+  const memberIds = Array.from(
+    new Set([...input.memberIds, input.currentUserId]),
+  ).sort();
+
+  return {
+    type: "group",
+    name: input.groupName.trim(),
+    ownerId: input.currentUserId,
+    memberIds,
+    lastMessageText: "",
+    lastMessageSenderId: "",
+    lastMessageAt: timestamp,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 async function getConversationWriteDeps(): Promise<ConversationWriteDeps> {
   const { getFirebaseServices } = await import("@/lib/firebase/client");
   const services = getFirebaseServices();
@@ -127,6 +155,24 @@ export async function createDirectConversationWithFirstMessage(
 
   batch.set(conversationRef, createConversationRecord(input, timestamp));
   batch.set(messageRef, createMessageRecord(input as any, timestamp));
+
+  await batch.commit();
+}
+
+export async function createGroupConversation(
+  input: CreateGroupConversationInput,
+  deps?: ConversationWriteDeps,
+) {
+  const resolvedDeps = deps ?? (await getConversationWriteDeps());
+  const batch = resolvedDeps.writeBatch(resolvedDeps.db as never);
+  const timestamp = resolvedDeps.serverTimestamp();
+  const conversationRef = resolvedDeps.doc(
+    resolvedDeps.db as never,
+    "conversations",
+    input.conversationId,
+  );
+
+  batch.set(conversationRef, createGroupConversationRecord(input, timestamp));
 
   await batch.commit();
 }

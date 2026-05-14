@@ -25,6 +25,7 @@ vi.mock("./use-chat-actions", () => ({
     isUploading: false,
     isPending: false,
     handleStartConversation: vi.fn(),
+    handleCreateGroup: vi.fn(),
     handleSendMessage: vi.fn(),
   })),
 }));
