@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
+import { Manrope, Space_Grotesk } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import './globals.css';
+
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+});
+
+const headingFont = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-heading",
+});
 
 export const metadata: Metadata = {
   title: "Realtime Chat",
@@ -17,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${bodyFont.variable} ${headingFont.variable}`}>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { ChatShell } from "@/components/chat/chat-shell";
@@ -12,8 +12,11 @@ describe("ChatShell", () => {
       <ChatShell
         currentUserId="user-1"
         users={[]}
+        isUsersLoading={false}
         conversations={[]}
+        isConversationsLoading={false}
         messages={[]}
+        isMessagesLoading={false}
         selectedConversationId={null}
         draftMessage=""
         errorMessage={null}
@@ -28,7 +31,11 @@ describe("ChatShell", () => {
 
     expect(screen.getByText("No registered users yet.")).toBeInTheDocument();
     expect(screen.getByText("No conversations yet.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New group" })).toBeInTheDocument();
+    const directorySection = screen.getByText("Directory").closest("section");
+    expect(directorySection).not.toBeNull();
+    expect(
+      within(directorySection as HTMLElement).getByRole("button", { name: "New group" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         "Select a conversation from the sidebar to start messaging, or create a new one.",
@@ -45,8 +52,11 @@ describe("ChatShell", () => {
       <ChatShell
         currentUserId="user-1"
         users={[]}
+        isUsersLoading={false}
         conversations={[]}
+        isConversationsLoading={false}
         messages={[]}
+        isMessagesLoading={false}
         selectedConversationId={null}
         draftMessage=""
         errorMessage={null}
@@ -69,6 +79,7 @@ describe("ChatShell", () => {
       <ChatShell
         currentUserId="user-1"
         users={[]}
+        isUsersLoading={false}
         conversations={[
           {
             id: "group-1",
@@ -77,7 +88,9 @@ describe("ChatShell", () => {
             lastMessageText: "No messages yet",
           },
         ]}
+        isConversationsLoading={false}
         messages={[]}
+        isMessagesLoading={false}
         selectedConversationId="group-1"
         selectedConversationDetails={{
           id: "group-1",
@@ -97,5 +110,35 @@ describe("ChatShell", () => {
 
     expect(screen.getByText("3 members: Jane Doe, John Smith, +1")).toBeInTheDocument();
     expect(screen.getByText("Owner User, Jane Doe, John Smith")).toBeInTheDocument();
+  });
+
+  it("renders skeleton placeholders while chat data is loading", () => {
+    render(
+      <ChatShell
+        currentUserId="user-1"
+        users={[]}
+        isUsersLoading={true}
+        conversations={[]}
+        isConversationsLoading={true}
+        messages={[]}
+        isMessagesLoading={true}
+        selectedConversationId="conversation-1"
+        draftMessage=""
+        errorMessage={null}
+        isUploading={false}
+        onDraftMessageChange={() => undefined}
+        onSelectConversation={() => undefined}
+        onStartConversation={() => undefined}
+        onSendMessage={() => undefined}
+        onOpenCreateGroup={() => undefined}
+      />,
+    );
+
+    expect(screen.getByTestId("user-list-skeleton")).toBeInTheDocument();
+    expect(screen.getByTestId("conversation-list-skeleton")).toBeInTheDocument();
+    expect(screen.getByTestId("message-thread-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText("No registered users yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No conversations yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText("It's quiet here")).not.toBeInTheDocument();
   });
 });

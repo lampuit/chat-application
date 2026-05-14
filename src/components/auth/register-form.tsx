@@ -98,7 +98,7 @@ export function RegisterForm() {
         ) : null}
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
         <button
-          className="w-full rounded-2xl bg-sky-900 px-5 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+          className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:bg-slate-300 disabled:translate-y-0"
           disabled={isPending}
           onClick={handleResend}
           type="button"
@@ -106,7 +106,7 @@ export function RegisterForm() {
           {isPending ? "Sending..." : "Resend verification email"}
         </button>
         <button
-          className="w-full rounded-2xl border border-black/10 bg-stone-50 px-5 py-3 text-sm font-medium text-slate-900 disabled:bg-slate-100"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-semibold text-slate-900 transition-all hover:-translate-y-0.5 hover:bg-white disabled:bg-slate-100 disabled:translate-y-0"
           disabled={isPending}
           onClick={handleRefreshVerification}
           type="button"
@@ -122,7 +122,7 @@ export function RegisterForm() {
       <label className="block space-y-2">
         <span className="text-sm font-medium text-slate-700">Display name</span>
         <input
-          className="w-full rounded-2xl border border-black/10 bg-stone-50 px-4 py-3 text-sm outline-none"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm outline-none transition focus:border-teal-300 focus:bg-white focus:ring-4 focus:ring-teal-100"
           onChange={(event) => setDisplayName(event.target.value)}
           required
           type="text"
@@ -132,7 +132,7 @@ export function RegisterForm() {
       <label className="block space-y-2">
         <span className="text-sm font-medium text-slate-700">Email</span>
         <input
-          className="w-full rounded-2xl border border-black/10 bg-stone-50 px-4 py-3 text-sm outline-none"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm outline-none transition focus:border-teal-300 focus:bg-white focus:ring-4 focus:ring-teal-100"
           onChange={(event) => setEmail(event.target.value)}
           required
           type="email"
@@ -142,7 +142,7 @@ export function RegisterForm() {
       <label className="block space-y-2">
         <span className="text-sm font-medium text-slate-700">Password</span>
         <input
-          className="w-full rounded-2xl border border-black/10 bg-stone-50 px-4 py-3 text-sm outline-none"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm outline-none transition focus:border-teal-300 focus:bg-white focus:ring-4 focus:ring-teal-100"
           minLength={6}
           onChange={(event) => setPassword(event.target.value)}
           required
@@ -152,7 +152,7 @@ export function RegisterForm() {
       </label>
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       <button
-        className="w-full rounded-2xl bg-sky-900 px-5 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+        className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:bg-slate-300 disabled:translate-y-0"
         disabled={isPending}
         type="submit"
       >

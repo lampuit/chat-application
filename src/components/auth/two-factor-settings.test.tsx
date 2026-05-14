@@ -111,14 +111,12 @@ describe("TwoFactorSettings", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the enabled state when TOTP is already enrolled", () => {
+  it("does not render the setup card when TOTP is already enrolled", () => {
     renderSettings({ emailVerified: true, hasTotpEnrollment: true });
 
-    expect(screen.getByText("2-step verification is now enabled.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Turn off 2-step verification" })).toBeDisabled();
-    expect(
-      screen.queryByRole("button", { name: "Set up Google Authenticator" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("2-step verification")).not.toBeInTheDocument();
+    expect(screen.queryByText("2-step verification is now enabled.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set up Google Authenticator" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
   });
 

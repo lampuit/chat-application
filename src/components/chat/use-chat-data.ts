@@ -40,6 +40,9 @@ export function useChatData(currentUserId: string | null) {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const [isUsersLoading, setIsUsersLoading] = useState(true);
+  const [isConversationsLoading, setIsConversationsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const selectedConversationExists = useMemo(
     () =>
@@ -50,8 +53,17 @@ export function useChatData(currentUserId: string | null) {
 
   useEffect(() => {
     if (!currentUserId) {
+      setUsers([]);
+      setConversations([]);
+      setMessages([]);
+      setIsUsersLoading(false);
+      setIsConversationsLoading(false);
+      setIsMessagesLoading(false);
       return;
     }
+
+    setIsUsersLoading(true);
+    setIsConversationsLoading(true);
 
     let unsubscribeUsers: (() => void) | undefined;
     let unsubscribeConversations: (() => void) | undefined;
@@ -71,6 +83,7 @@ export function useChatData(currentUserId: string | null) {
       unsubscribeUsers = firestore.onSnapshot(
         firestore.collection(services.db, "users"),
         (snapshot) => {
+          setIsUsersLoading(false);
           setUsers(
             snapshot.docs.map((doc) => ({
               uid: doc.id,
@@ -87,6 +100,7 @@ export function useChatData(currentUserId: string | null) {
           firestore.orderBy("lastMessageAt", "desc"),
         ),
         (snapshot) => {
+          setIsConversationsLoading(false);
           const nextConversations = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...(doc.data() as Omit<ConversationRecord, "id">),
@@ -116,9 +130,11 @@ export function useChatData(currentUserId: string | null) {
   useEffect(() => {
     if (!selectedConversationId || !selectedConversationExists) {
       setMessages([]);
+      setIsMessagesLoading(false);
       return;
     }
 
+    setIsMessagesLoading(true);
     const conversationId = selectedConversationId;
     let unsubscribe: (() => void) | undefined;
     let isCancelled = false;
@@ -140,6 +156,7 @@ export function useChatData(currentUserId: string | null) {
           firestore.orderBy("createdAt", "asc"),
         ),
         (snapshot) => {
+          setIsMessagesLoading(false);
           setMessages(
             snapshot.docs.map((doc) => ({
               id: doc.id,
@@ -269,6 +286,9 @@ export function useChatData(currentUserId: string | null) {
     conversations,
     setConversations,
     messages,
+    isUsersLoading,
+    isConversationsLoading,
+    isMessagesLoading,
     selectedConversationId,
     setSelectedConversationId,
     conversationItems,
