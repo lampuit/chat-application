@@ -10,6 +10,7 @@ describe("createPendingConversationRecord", () => {
       createPendingConversationRecord("conversation-1", "user-b", "user-a"),
     ).toEqual({
       id: "conversation-1",
+      type: "direct",
       memberIds: ["user-a", "user-b"],
       lastMessageText: "",
       lastMessageAt: null,
