@@ -19,7 +19,6 @@ export function TwoFactorSettings() {
   const [isPending, startTransition] = useTransition();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hasTotpEnrollment = Boolean(user?.hasTotpEnrollment);
-  const isProfileReady = Boolean(user?.displayName);
   const enabledMessage = successMessage ?? (hasTotpEnrollment ? "2-step verification is now enabled." : null);
 
   useEffect(() => {
@@ -33,10 +32,6 @@ export function TwoFactorSettings() {
   }, [setup]);
 
   if (!user) {
-    return null;
-  }
-
-  if (isProfileReady) {
     return null;
   }
 
@@ -90,11 +85,22 @@ export function TwoFactorSettings() {
 
   return (
     <section className="rounded-3xl border border-black/10 bg-white/80 p-5 shadow-sm">
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold text-slate-900">2-step verification</h2>
-        <p className="text-sm text-slate-600">
-          Protect your account with a 6-digit code from Google Authenticator.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-slate-900">2-step verification</h2>
+          <p className="text-sm text-slate-600">
+            Protect your account with a 6-digit code from Google Authenticator.
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            hasTotpEnrollment
+              ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200"
+              : "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200"
+          }`}
+        >
+          {hasTotpEnrollment ? "Enabled" : "Not enabled"}
+        </span>
       </div>
 
       {!user.emailVerified ? (
@@ -168,6 +174,15 @@ export function TwoFactorSettings() {
       ) : null}
 
       {enabledMessage ? <p className="mt-4 text-sm text-emerald-700">{enabledMessage}</p> : null}
+      {hasTotpEnrollment ? (
+        <button
+          className="mt-4 rounded-2xl border border-black/10 bg-stone-100 px-4 py-3 text-sm font-medium text-slate-400"
+          disabled
+          type="button"
+        >
+          Turn off 2-step verification
+        </button>
+      ) : null}
       {error ? <p className="mt-4 text-sm text-rose-600">{error}</p> : null}
     </section>
   );

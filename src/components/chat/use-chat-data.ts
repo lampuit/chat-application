@@ -25,6 +25,12 @@ export function useChatData(currentUserId: string | null) {
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const selectedConversationExists = useMemo(
+    () =>
+      selectedConversationId != null &&
+      conversations.some((conversation) => conversation.id === selectedConversationId),
+    [conversations, selectedConversationId],
+  );
 
   useEffect(() => {
     if (!currentUserId) {
@@ -92,7 +98,7 @@ export function useChatData(currentUserId: string | null) {
   }, [currentUserId]);
 
   useEffect(() => {
-    if (!selectedConversationId) {
+    if (!selectedConversationId || !selectedConversationExists) {
       setMessages([]);
       return;
     }
@@ -134,7 +140,7 @@ export function useChatData(currentUserId: string | null) {
       isCancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [selectedConversationId]);
+  }, [selectedConversationExists, selectedConversationId]);
 
   const conversationItems = useMemo(() => {
     return conversations.map((conversation) => {

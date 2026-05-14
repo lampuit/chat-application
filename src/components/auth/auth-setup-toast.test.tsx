@@ -1,35 +1,23 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { AuthContext } from "@/components/auth/auth-provider";
 import { AuthSetupToast } from "@/components/auth/auth-setup-toast";
 
 const {
-  finalizeTotpEnrollment,
   reloadCurrentUser,
-  renderQrCodeToCanvas,
   sendCurrentUserVerificationEmail,
-  startTotpEnrollment,
 } = vi.hoisted(() => ({
   sendCurrentUserVerificationEmail: vi.fn().mockResolvedValue(undefined),
   reloadCurrentUser: vi.fn().mockResolvedValue({
     emailVerified: true,
   }),
-  startTotpEnrollment: vi.fn(),
-  finalizeTotpEnrollment: vi.fn().mockResolvedValue(undefined),
-  renderQrCodeToCanvas: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/auth/auth-service", () => ({
   sendCurrentUserVerificationEmail,
   reloadCurrentUser,
-  startTotpEnrollment,
-  finalizeTotpEnrollment,
-}));
-
-vi.mock("@/lib/auth/qr-code", () => ({
-  renderQrCodeToCanvas,
 }));
 
 function renderToast({
@@ -75,9 +63,10 @@ describe("AuthSetupToast", () => {
     expect(
       screen.getByText(/before enabling Google Authenticator 2-step verification\./),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss email verification reminder" })).toBeInTheDocument();
   });
 
-  it("moves from email verification into the 2-step verification toast", async () => {
+  it("stays as a verify-email toast after refreshing verification status", async () => {
     const user = userEvent.setup();
     const refreshUser = vi.fn().mockResolvedValue(undefined);
 
@@ -103,60 +92,24 @@ describe("AuthSetupToast", () => {
       expect(refreshUser).toHaveBeenCalled();
     });
 
-    expect(await screen.findByText("2-step verification")).toBeInTheDocument();
+    const toast = await screen.findByRole("region", { name: "Email verification reminder" });
+    expect(within(toast).getByText("Verify your email")).toBeInTheDocument();
     expect(
-      screen.getByText("Protect your account with a 6-digit code from Google Authenticator."),
-    ).toBeInTheDocument();
+      screen.queryByText("2-step verification"),
+    ).not.toBeInTheDocument();
   });
 
-  it("shows the 2-step verification setup flow and completes enrollment", async () => {
+  it("can be dismissed by the user", async () => {
     const user = userEvent.setup();
-    const refreshUser = vi.fn().mockResolvedValue(undefined);
-    const setup = {
-      secret: { secretKey: "SECRET123" },
-      secretKey: "SECRET123",
-      qrCodeUrl: "otpauth://totp/chat-app",
-      codeLength: 6,
-      codeIntervalSeconds: 30,
-    };
 
-    startTotpEnrollment.mockResolvedValue(setup);
+    renderToast({ emailVerified: false, displayName: "User One" });
 
-    renderToast({
-      emailVerified: true,
-      refreshUser,
-    });
+    await user.click(screen.getByRole("button", { name: "Dismiss email verification reminder" }));
 
-    expect(screen.getByText("2-step verification")).toBeInTheDocument();
-
-    await user.type(screen.getByLabelText("Current password"), "secret123");
-    await user.click(screen.getByRole("button", { name: "Set up Google Authenticator" }));
-
-    expect(await screen.findByText("SECRET123")).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(startTotpEnrollment).toHaveBeenCalledWith("secret123");
-      expect(renderQrCodeToCanvas).toHaveBeenCalled();
-    });
-
-    await user.type(screen.getByLabelText("Authenticator code"), "123456");
-    await user.click(screen.getByRole("button", { name: "Enable 2-step verification" }));
-
-    await waitFor(() => {
-      expect(finalizeTotpEnrollment).toHaveBeenCalledWith({
-        secret: setup.secret,
-        verificationCode: "123456",
-        displayName: "Google Authenticator",
-      });
-      expect(refreshUser).toHaveBeenCalled();
-    });
-
-    expect(
-      await screen.findByText("2-step verification is now enabled."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Verify your email")).not.toBeInTheDocument();
   });
 
-  it("stays hidden once the profile is ready", () => {
+  it("stays hidden when the user is already verified", () => {
     renderToast({ emailVerified: true, displayName: "User One" });
 
     expect(screen.queryByText("Verify your email")).not.toBeInTheDocument();
