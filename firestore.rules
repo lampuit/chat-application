@@ -35,9 +35,30 @@ service cloud.firestore {
           get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberIds;
     }
 
+    function allowedUserDocumentKeys() {
+      return [
+        "uid",
+        "email",
+        "displayName",
+        "photoURL",
+        "createdAt",
+        "updatedAt",
+        "lastSeenAt",
+        "fcmTokens",
+      ];
+    }
+
+    function isSafeUserSelfUpdate() {
+      return request.resource.data.uid == userId
+        && request.resource.data.keys().hasOnly(allowedUserDocumentKeys())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedUserDocumentKeys())
+        && (!("fcmTokens" in request.resource.data) || request.resource.data.fcmTokens is list);
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId && isSafeUserSelfUpdate();
     }
 
     match /conversations/{conversationId} {

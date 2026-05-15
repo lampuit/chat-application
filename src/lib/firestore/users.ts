@@ -1,4 +1,5 @@
 import {
+  arrayUnion as firestoreArrayUnion,
   doc as firestoreDoc,
   serverTimestamp as firestoreServerTimestamp,
   setDoc as firestoreSetDoc,
@@ -10,6 +11,10 @@ export type UserDocumentDeps = {
   doc: typeof firestoreDoc;
   setDoc: typeof firestoreSetDoc;
   serverTimestamp: typeof firestoreServerTimestamp;
+};
+
+export type UserTokenDocumentDeps = UserDocumentDeps & {
+  arrayUnion: typeof firestoreArrayUnion;
 };
 
 export async function getDefaultUserDocumentDeps(): Promise<UserDocumentDeps> {
@@ -28,6 +33,15 @@ export async function getDefaultUserDocumentDeps(): Promise<UserDocumentDeps> {
   };
 }
 
+export async function getDefaultUserTokenDocumentDeps(): Promise<UserTokenDocumentDeps> {
+  const deps = await getDefaultUserDocumentDeps();
+
+  return {
+    ...deps,
+    arrayUnion: firestoreArrayUnion,
+  };
+}
+
 export async function upsertUserProfile(
   uid: string,
   profile: UserProfile,
@@ -36,4 +50,22 @@ export async function upsertUserProfile(
   const userRef = deps.doc(deps.db as never, "users", uid);
 
   await deps.setDoc(userRef, profile, { merge: true });
+}
+
+export async function storeUserFcmToken(
+  uid: string,
+  token: string,
+  deps?: UserTokenDocumentDeps,
+) {
+  const resolvedDeps = deps ?? (await getDefaultUserTokenDocumentDeps());
+  const userRef = resolvedDeps.doc(resolvedDeps.db as never, "users", uid);
+
+  await resolvedDeps.setDoc(
+    userRef,
+    {
+      fcmTokens: resolvedDeps.arrayUnion(token),
+      updatedAt: resolvedDeps.serverTimestamp(),
+    },
+    { merge: true },
+  );
 }

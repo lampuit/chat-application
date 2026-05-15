@@ -5,7 +5,8 @@ type FirebaseEnvSource = Partial<
     | "NEXT_PUBLIC_FIREBASE_PROJECT_ID"
     | "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"
     | "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"
-    | "NEXT_PUBLIC_FIREBASE_APP_ID",
+    | "NEXT_PUBLIC_FIREBASE_APP_ID"
+    | "NEXT_PUBLIC_FIREBASE_VAPID_KEY",
     string
   >
 >;
@@ -19,6 +20,7 @@ function getDefaultFirebaseEnvSource(): FirebaseEnvSource {
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
       process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    NEXT_PUBLIC_FIREBASE_VAPID_KEY: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
   };
 }
 
@@ -31,7 +33,11 @@ export type FirebaseClientConfig = {
   appId: string;
 };
 
-const REQUIRED_KEYS = [
+export type FirebaseMessagingConfig = {
+  vapidKey: string;
+};
+
+const REQUIRED_APP_KEYS = [
   "NEXT_PUBLIC_FIREBASE_API_KEY",
   "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
   "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
@@ -42,7 +48,7 @@ const REQUIRED_KEYS = [
 
 function getRequiredValue(
   source: FirebaseEnvSource,
-  key: (typeof REQUIRED_KEYS)[number],
+  key: keyof FirebaseEnvSource,
 ) {
   const value = source[key];
 
@@ -57,15 +63,12 @@ export function getFirebaseEnv(
   source: FirebaseEnvSource = getDefaultFirebaseEnvSource(),
 ): FirebaseClientConfig {
   return {
-    apiKey: getRequiredValue(source, "NEXT_PUBLIC_FIREBASE_API_KEY"),
-    authDomain: getRequiredValue(source, "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"),
-    projectId: getRequiredValue(source, "NEXT_PUBLIC_FIREBASE_PROJECT_ID"),
-    storageBucket: getRequiredValue(source, "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"),
-    messagingSenderId: getRequiredValue(
-      source,
-      "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-    ),
-    appId: getRequiredValue(source, "NEXT_PUBLIC_FIREBASE_APP_ID"),
+    apiKey: getRequiredValue(source, REQUIRED_APP_KEYS[0]),
+    authDomain: getRequiredValue(source, REQUIRED_APP_KEYS[1]),
+    projectId: getRequiredValue(source, REQUIRED_APP_KEYS[2]),
+    storageBucket: getRequiredValue(source, REQUIRED_APP_KEYS[3]),
+    messagingSenderId: getRequiredValue(source, REQUIRED_APP_KEYS[4]),
+    appId: getRequiredValue(source, REQUIRED_APP_KEYS[5]),
   };
 }
 
@@ -74,6 +77,24 @@ export function tryGetFirebaseEnv(
 ): FirebaseClientConfig | null {
   try {
     return getFirebaseEnv(source);
+  } catch {
+    return null;
+  }
+}
+
+export function getFirebaseMessagingEnv(
+  source: FirebaseEnvSource = getDefaultFirebaseEnvSource(),
+): FirebaseMessagingConfig {
+  return {
+    vapidKey: getRequiredValue(source, "NEXT_PUBLIC_FIREBASE_VAPID_KEY"),
+  };
+}
+
+export function tryGetFirebaseMessagingEnv(
+  source: FirebaseEnvSource = getDefaultFirebaseEnvSource(),
+): FirebaseMessagingConfig | null {
+  try {
+    return getFirebaseMessagingEnv(source);
   } catch {
     return null;
   }

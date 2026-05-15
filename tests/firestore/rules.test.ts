@@ -34,4 +34,26 @@ describe("firestore rules", () => {
       "get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberIds",
     );
   });
+
+  it("allows self-managed user profile updates only for known document keys including fcmTokens", () => {
+    expect(rules).toContain("function allowedUserDocumentKeys()");
+    expect(rules).toContain('"uid"');
+    expect(rules).toContain('"email"');
+    expect(rules).toContain('"displayName"');
+    expect(rules).toContain('"photoURL"');
+    expect(rules).toContain('"createdAt"');
+    expect(rules).toContain('"updatedAt"');
+    expect(rules).toContain('"lastSeenAt"');
+    expect(rules).toContain('"fcmTokens"');
+  });
+
+  it("prevents arbitrary self-update field injection on user documents", () => {
+    expect(rules).toContain("function isSafeUserSelfUpdate()");
+    expect(rules).toContain("request.resource.data.uid == userId");
+    expect(rules).toContain("request.resource.data.keys().hasOnly(allowedUserDocumentKeys())");
+    expect(rules).toContain(
+      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedUserDocumentKeys())",
+    );
+    expect(rules).toContain("allow update: if isSignedIn() && request.auth.uid == userId && isSafeUserSelfUpdate();");
+  });
 });

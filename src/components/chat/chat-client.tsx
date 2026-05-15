@@ -6,11 +6,14 @@ import { ChatShell } from "@/components/chat/chat-shell";
 import { CreateGroupModal } from "@/components/chat/create-group-modal";
 import { useAuth } from "@/components/auth/auth-provider";
 import { logout } from "@/lib/auth/auth-service";
+import { registerFcmTokenFromUserAction } from "@/lib/firebase/messaging";
 import { useChatData } from "./use-chat-data";
 import { useChatActions } from "./use-chat-actions";
 
 export function ChatClient() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = React.useState(false);
+  const [isRegisteringNotifications, setIsRegisteringNotifications] = React.useState(false);
+  const [notificationFeedback, setNotificationFeedback] = React.useState<string | null>(null);
   const { user } = useAuth();
   const currentUser = user;
   const currentUserId = currentUser?.uid ?? null;
@@ -51,6 +54,31 @@ export function ChatClient() {
   if (!currentUserId || !currentUser) {
     return null;
   }
+
+  const handleEnableNotifications = async () => {
+    setIsRegisteringNotifications(true);
+    setNotificationFeedback(null);
+
+    try {
+      const result = await registerFcmTokenFromUserAction(currentUserId);
+
+      if (result.status === "registered") {
+        setNotificationFeedback("Notifications enabled for this device.");
+        return;
+      }
+
+      if (result.status === "permission-not-granted") {
+        setNotificationFeedback("Notifications stayed off. You can enable them later from this device.");
+        return;
+      }
+
+      setNotificationFeedback("Notifications are not available on this browser right now.");
+    } catch {
+      setNotificationFeedback("Notifications are not available on this browser right now.");
+    } finally {
+      setIsRegisteringNotifications(false);
+    }
+  };
 
   const displayName = currentUser.displayName ?? currentUser.email ?? "Realtime Chat";
   const displayNameInitials = displayName
@@ -119,6 +147,29 @@ export function ChatClient() {
               <p className="mt-1 text-sm font-medium text-slate-900">Live workspace</p>
             </div>
           </div>
+        </div>
+        <div className="rounded-[1.75rem] border border-sky-200/80 bg-sky-50/80 p-4 shadow-[0_12px_32px_rgba(14,165,233,0.08)] ring-1 ring-sky-100/80 backdrop-blur">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-sky-700">
+                Notifications
+              </p>
+              <p className="text-sm text-slate-700">
+                Turn on push alerts for new messages on this device.
+              </p>
+            </div>
+            <button
+              className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-sky-500 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-sky-300"
+              disabled={isRegisteringNotifications}
+              onClick={() => void handleEnableNotifications()}
+              type="button"
+            >
+              {isRegisteringNotifications ? "Enabling..." : "Enable notifications"}
+            </button>
+          </div>
+          {notificationFeedback ? (
+            <p className="mt-3 text-sm text-slate-600">{notificationFeedback}</p>
+          ) : null}
         </div>
         <TwoFactorSettings />
       </div>
