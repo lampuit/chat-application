@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerFcmTokenFromUserAction } from "@/lib/firebase/messaging";
+import {
+  initializeForegroundNotificationsForCurrentSession,
+  registerFcmTokenFromUserAction,
+} from "@/lib/firebase/messaging";
 import { storeUserFcmToken } from "@/lib/firestore/users";
 
 describe("registerFcmTokenFromUserAction", () => {
@@ -129,6 +132,60 @@ describe("registerFcmTokenFromUserAction", () => {
         originalEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
       process.env.NEXT_PUBLIC_FIREBASE_APP_ID = originalEnv.NEXT_PUBLIC_FIREBASE_APP_ID;
     }
+  });
+});
+
+describe("initializeForegroundNotificationsForCurrentSession", () => {
+  it("skips foreground initialization when permission is not granted", async () => {
+    const getRegistration = vi.fn();
+    const getFirebaseServices = vi.fn();
+
+    const result = await initializeForegroundNotificationsForCurrentSession({
+      windowObject: {},
+      notificationApi: {
+        permission: "default",
+        requestPermission: vi.fn(),
+      },
+      serviceWorkerApi: {
+        register: vi.fn(),
+        getRegistration,
+      },
+      getFirebaseServices,
+    });
+
+    expect(result).toEqual({
+      status: "permission-not-granted",
+      permission: "default",
+    });
+    expect(getRegistration).not.toHaveBeenCalled();
+    expect(getFirebaseServices).not.toHaveBeenCalled();
+  });
+
+  it("initializes foreground notifications when permission is already granted", async () => {
+    const getRegistration = vi.fn().mockResolvedValue({
+      showNotification: vi.fn(),
+    });
+    const getFirebaseServices = vi.fn().mockReturnValue({
+      app: "firebase-app",
+    });
+
+    const result = await initializeForegroundNotificationsForCurrentSession({
+      windowObject: {},
+      notificationApi: {
+        permission: "granted",
+        requestPermission: vi.fn(),
+      },
+      serviceWorkerApi: {
+        register: vi.fn(),
+        getRegistration,
+      },
+      getFirebaseServices,
+    });
+
+    expect(result).toEqual({
+      status: "initialized",
+    });
+    expect(getFirebaseServices).toHaveBeenCalledTimes(1);
   });
 });
 

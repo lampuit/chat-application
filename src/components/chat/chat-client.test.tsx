@@ -1,10 +1,13 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthContext } from "@/components/auth/auth-provider";
 import { ChatClient } from "@/components/chat/chat-client";
-import { registerFcmTokenFromUserAction } from "@/lib/firebase/messaging";
+import {
+  initializeForegroundNotificationsForCurrentSession,
+  registerFcmTokenFromUserAction,
+} from "@/lib/firebase/messaging";
 
 vi.mock("./use-chat-data", () => ({
   useChatData: vi.fn(() => ({
@@ -37,6 +40,8 @@ vi.mock("@/lib/auth/auth-service", () => ({
 }));
 
 vi.mock("@/lib/firebase/messaging", () => ({
+  FOREGROUND_MESSAGE_EVENT: "chat:foreground-message",
+  initializeForegroundNotificationsForCurrentSession: vi.fn(),
   registerFcmTokenFromUserAction: vi.fn(),
 }));
 
@@ -62,6 +67,11 @@ function renderChatClient() {
 
 describe("ChatClient", () => {
   beforeEach(() => {
+    vi.mocked(initializeForegroundNotificationsForCurrentSession).mockReset();
+    vi.mocked(initializeForegroundNotificationsForCurrentSession).mockResolvedValue({
+      status: "permission-not-granted",
+      permission: "default",
+    });
     vi.mocked(registerFcmTokenFromUserAction).mockReset();
   });
 
@@ -104,6 +114,7 @@ describe("ChatClient", () => {
   it("does not auto-register notifications on render", () => {
     renderChatClient();
 
+    expect(initializeForegroundNotificationsForCurrentSession).toHaveBeenCalledTimes(1);
     expect(registerFcmTokenFromUserAction).not.toHaveBeenCalled();
   });
 
@@ -121,5 +132,25 @@ describe("ChatClient", () => {
 
     expect(registerFcmTokenFromUserAction).toHaveBeenCalledWith("user-1");
     expect(screen.getByText("Notifications enabled for this device.")).toBeInTheDocument();
+  });
+
+  it("shows an in-app toast when a foreground push event is received", async () => {
+    renderChatClient();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent("chat:foreground-message", {
+          detail: {
+            title: "New message",
+            body: "hi em",
+            conversationId: "conversation-1",
+            messageId: "message-1",
+            senderId: "user-2",
+          },
+        }),
+      );
+    });
+
+    expect(await screen.findByText("hi em")).toBeInTheDocument();
   });
 });

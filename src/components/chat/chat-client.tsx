@@ -6,11 +6,22 @@ import { ChatShell } from "@/components/chat/chat-shell";
 import { CreateGroupModal } from "@/components/chat/create-group-modal";
 import { useAuth } from "@/components/auth/auth-provider";
 import { logout } from "@/lib/auth/auth-service";
-import { registerFcmTokenFromUserAction } from "@/lib/firebase/messaging";
+import {
+  FOREGROUND_MESSAGE_EVENT,
+  initializeForegroundNotificationsForCurrentSession,
+  registerFcmTokenFromUserAction,
+} from "@/lib/firebase/messaging";
 import { useChatData } from "./use-chat-data";
 import { useChatActions } from "./use-chat-actions";
 
 export function ChatClient() {
+  const [foregroundToast, setForegroundToast] = React.useState<{
+    title: string;
+    body: string;
+    conversationId: string | null;
+    messageId: string | null;
+    senderId: string | null;
+  } | null>(null);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = React.useState(false);
   const [isRegisteringNotifications, setIsRegisteringNotifications] = React.useState(false);
   const [notificationFeedback, setNotificationFeedback] = React.useState<string | null>(null);
@@ -55,6 +66,44 @@ export function ChatClient() {
     return null;
   }
 
+  React.useEffect(() => {
+    void initializeForegroundNotificationsForCurrentSession();
+  }, [currentUserId]);
+
+  React.useEffect(() => {
+    const handleForegroundMessage = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        title?: string;
+        body?: string;
+        conversationId?: string | null;
+        messageId?: string | null;
+        senderId?: string | null;
+      }>;
+      const detail = customEvent.detail;
+
+      if (!detail?.title && !detail?.body) {
+        return;
+      }
+
+      setForegroundToast({
+        title: detail.title ?? "New message",
+        body: detail.body ?? "",
+        conversationId: detail.conversationId ?? null,
+        messageId: detail.messageId ?? null,
+        senderId: detail.senderId ?? null,
+      });
+    };
+
+    window.addEventListener(FOREGROUND_MESSAGE_EVENT, handleForegroundMessage as EventListener);
+
+    return () => {
+      window.removeEventListener(
+        FOREGROUND_MESSAGE_EVENT,
+        handleForegroundMessage as EventListener,
+      );
+    };
+  }, []);
+
   const handleEnableNotifications = async () => {
     setIsRegisteringNotifications(true);
     setNotificationFeedback(null);
@@ -91,6 +140,30 @@ export function ChatClient() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 overflow-y-auto pr-1 lg:gap-6">
+      {foregroundToast ? (
+        <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-full max-w-sm justify-end sm:right-6 sm:top-6">
+          <div className="pointer-events-auto rounded-[1.5rem] border border-sky-200/80 bg-white/95 p-4 shadow-[0_24px_60px_rgba(14,165,233,0.18)] ring-1 ring-slate-900/5 backdrop-blur">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-sky-500" />
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700">
+                  New message
+                </p>
+                <p className="text-sm font-semibold text-slate-950">{foregroundToast.title}</p>
+                <p className="text-sm text-slate-600">{foregroundToast.body}</p>
+              </div>
+              <button
+                aria-label="Dismiss notification"
+                className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => setForegroundToast(null)}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="shrink-0 space-y-4">
         <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/5 sm:p-6">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.08),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(20,184,166,0.08),transparent_32%)]" />
