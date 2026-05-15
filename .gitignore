@@ -1,5 +1,6 @@
 node_modules
 .next
+.worktrees/
 docs
 coverage
 .env
@@ -8,4 +9,3 @@ coverage
 .env.test.local
 .env.production.local
 firebase-debug.log
-

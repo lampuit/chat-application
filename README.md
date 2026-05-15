@@ -17,6 +17,7 @@ Core realtime chat application built with Next.js, TypeScript, Tailwind CSS, Fir
 - Realtime message updates with Firestore listeners
 - Firestore security rules and indexes
 - Firebase Storage image uploads for chat messages
+- Firebase Cloud Messaging push notifications for new messages
 
 ## Firebase MFA Prerequisites
 
@@ -39,6 +40,16 @@ The full verification flow in this app uses Firebase email action links. Before 
 
 If verification emails still do not send, the most common Firebase cause is an unauthorized continue URL. In Firebase Authentication, add the app domain to `Authorized Domains`. For local development, Firebase notes that in projects created after April 28, 2025, `localhost` is no longer authorized by default and must be added manually.
 
+## Firebase Cloud Messaging Prerequisites
+
+Push notifications in this app depend on Firebase Cloud Messaging for Web. Before testing or deploying them, make sure:
+
+- Firebase Cloud Messaging is enabled for the project.
+- Web Push certificates are configured in Firebase and you have the public VAPID key.
+- `NEXT_PUBLIC_FIREBASE_VAPID_KEY` is set to that public VAPID key in the app environment.
+- The app origin you use in development or production is served over HTTPS, or `http://localhost` for local testing.
+- Users enable notifications from the in-app prompt before expecting this device to receive pushes.
+
 ## Full Auth Flow
 
 1. Register with display name, email, and password.
@@ -47,11 +58,6 @@ If verification emails still do not send, the most common Firebase cause is an u
 4. Sign in and refresh verification status if needed.
 5. Re-enter your current password and enable Google Authenticator 2-step verification from `/chat`.
 6. On later sign-ins, complete the TOTP challenge with your 6-digit code.
-
-## Out of Scope for Core Version
-
-- Group chat
-- Push notifications
 
 ## Local Setup
 
@@ -63,19 +69,25 @@ npm install
 
 2. Copy `.env.example` to `.env.local` and fill in your Firebase web app values.
 
-3. Run the development server:
+3. Install the Firebase Functions workspace dependencies:
+
+```bash
+cd functions && npm install
+```
+
+4. Run the development server:
 
 ```bash
 npm run dev
 ```
 
-4. Run tests:
+5. Run tests:
 
 ```bash
 npm test
 ```
 
-5. Verify production build:
+6. Verify production build:
 
 ```bash
 npm run build

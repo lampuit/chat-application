@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getFirebaseEnv, tryGetFirebaseEnv } from "@/lib/firebase/config";
+import {
+  getFirebaseEnv,
+  getFirebaseMessagingEnv,
+  tryGetFirebaseEnv,
+  tryGetFirebaseMessagingEnv,
+} from "@/lib/firebase/config";
 
 describe("getFirebaseEnv", () => {
   it("throws when a required Firebase variable is missing", () => {
@@ -41,5 +46,21 @@ describe("getFirebaseEnv", () => {
         NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "demo.firebaseapp.com",
       }),
     ).toBeNull();
+  });
+});
+
+describe("getFirebaseMessagingEnv", () => {
+  it("returns the parsed VAPID key", () => {
+    expect(
+      getFirebaseMessagingEnv({
+        NEXT_PUBLIC_FIREBASE_VAPID_KEY: "demo-vapid-key",
+      }),
+    ).toEqual({
+      vapidKey: "demo-vapid-key",
+    });
+  });
+
+  it("returns null instead of throwing when the VAPID key is missing", () => {
+    expect(tryGetFirebaseMessagingEnv({})).toBeNull();
   });
 });
