@@ -9,6 +9,8 @@ import {
   registerFcmTokenFromUserAction,
 } from "@/lib/firebase/messaging";
 
+const setSelectedConversationId = vi.fn();
+
 vi.mock("./use-chat-data", () => ({
   useChatData: vi.fn(() => ({
     users: [],
@@ -16,7 +18,7 @@ vi.mock("./use-chat-data", () => ({
     setConversations: vi.fn(),
     messages: [],
     selectedConversationId: null,
-    setSelectedConversationId: vi.fn(),
+    setSelectedConversationId,
     conversationItems: [],
     messageItems: [],
   })),
@@ -41,6 +43,7 @@ vi.mock("@/lib/auth/auth-service", () => ({
 
 vi.mock("@/lib/firebase/messaging", () => ({
   FOREGROUND_MESSAGE_EVENT: "chat:foreground-message",
+  NOTIFICATION_CLICK_EVENT: "chat:notification-click",
   initializeForegroundNotificationsForCurrentSession: vi.fn(),
   registerFcmTokenFromUserAction: vi.fn(),
 }));
@@ -67,6 +70,7 @@ function renderChatClient() {
 
 describe("ChatClient", () => {
   beforeEach(() => {
+    setSelectedConversationId.mockReset();
     vi.mocked(initializeForegroundNotificationsForCurrentSession).mockReset();
     vi.mocked(initializeForegroundNotificationsForCurrentSession).mockResolvedValue({
       status: "permission-not-granted",
@@ -152,5 +156,23 @@ describe("ChatClient", () => {
     });
 
     expect(await screen.findByText("hi em")).toBeInTheDocument();
+  });
+
+  it("selects the clicked conversation when a notification click event is received", async () => {
+    renderChatClient();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent("chat:notification-click", {
+          detail: {
+            conversationId: "conversation-1",
+            messageId: "message-1",
+            senderId: "user-2",
+          },
+        }),
+      );
+    });
+
+    expect(setSelectedConversationId).toHaveBeenCalledWith("conversation-1");
   });
 });

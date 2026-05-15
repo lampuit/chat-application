@@ -44,12 +44,29 @@ export function useChatData(currentUserId: string | null) {
   const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [subscriptionRefreshKey, setSubscriptionRefreshKey] = useState(0);
   const selectedConversationExists = useMemo(
     () =>
       selectedConversationId != null &&
       conversations.some((conversation) => conversation.id === selectedConversationId),
     [conversations, selectedConversationId],
   );
+
+  useEffect(() => {
+    const refreshSubscriptions = () => {
+      if (document.visibilityState === "visible") {
+        setSubscriptionRefreshKey((currentValue) => currentValue + 1);
+      }
+    };
+
+    window.addEventListener("focus", refreshSubscriptions);
+    document.addEventListener("visibilitychange", refreshSubscriptions);
+
+    return () => {
+      window.removeEventListener("focus", refreshSubscriptions);
+      document.removeEventListener("visibilitychange", refreshSubscriptions);
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -125,7 +142,7 @@ export function useChatData(currentUserId: string | null) {
       if (unsubscribeUsers) unsubscribeUsers();
       if (unsubscribeConversations) unsubscribeConversations();
     };
-  }, [currentUserId]);
+  }, [currentUserId, subscriptionRefreshKey]);
 
   useEffect(() => {
     if (!selectedConversationId || !selectedConversationExists) {
@@ -173,7 +190,7 @@ export function useChatData(currentUserId: string | null) {
       isCancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [selectedConversationExists, selectedConversationId]);
+  }, [selectedConversationExists, selectedConversationId, subscriptionRefreshKey]);
 
   function getMemberLabels(memberIds: string[]) {
     return memberIds.map((memberId) => {

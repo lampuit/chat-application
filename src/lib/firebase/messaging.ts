@@ -8,9 +8,15 @@ let foregroundHandlerSetup = false;
 let activeMessagingServiceWorkerRegistration: ServiceWorkerRegistration | null = null;
 
 export const FOREGROUND_MESSAGE_EVENT = "chat:foreground-message";
+export const NOTIFICATION_CLICK_EVENT = "chat:notification-click";
+
+let serviceWorkerBridgeSetup = false;
 
 type NotificationApi = Pick<typeof Notification, "requestPermission" | "permission">;
-type ServiceWorkerApi = Pick<ServiceWorkerContainer, "register" | "getRegistration">;
+type ServiceWorkerApi = Pick<
+  ServiceWorkerContainer,
+  "register" | "getRegistration" | "addEventListener"
+>;
 
 export type RegisterFcmTokenResult =
   | {
@@ -93,6 +99,68 @@ function getDefaultServiceWorkerApi() {
   return navigator.serviceWorker;
 }
 
+type ServiceWorkerMessagePayload = {
+  type?: string;
+  detail?: {
+    title?: string;
+    body?: string;
+    conversationId?: string | null;
+    messageId?: string | null;
+    senderId?: string | null;
+  };
+};
+
+function dispatchForegroundMessage(detail: ServiceWorkerMessagePayload["detail"]) {
+  window.dispatchEvent(
+    new CustomEvent(FOREGROUND_MESSAGE_EVENT, {
+      detail: {
+        title: detail?.title ?? "New message",
+        body: detail?.body ?? "",
+        conversationId: detail?.conversationId ?? null,
+        messageId: detail?.messageId ?? null,
+        senderId: detail?.senderId ?? null,
+      },
+    }),
+  );
+}
+
+function dispatchNotificationClick(detail: ServiceWorkerMessagePayload["detail"]) {
+  window.dispatchEvent(
+    new CustomEvent(NOTIFICATION_CLICK_EVENT, {
+      detail: {
+        conversationId: detail?.conversationId ?? null,
+        messageId: detail?.messageId ?? null,
+        senderId: detail?.senderId ?? null,
+      },
+    }),
+  );
+}
+
+function setupServiceWorkerMessageBridge(serviceWorkerApi: ServiceWorkerApi) {
+  if (serviceWorkerBridgeSetup) {
+    return;
+  }
+
+  serviceWorkerApi.addEventListener?.("message", (event: MessageEvent<ServiceWorkerMessagePayload>) => {
+    const payload = event.data;
+
+    if (!payload?.type) {
+      return;
+    }
+
+    if (payload.type === "chat-background-message") {
+      dispatchForegroundMessage(payload.detail);
+      return;
+    }
+
+    if (payload.type === "chat-notification-click") {
+      dispatchNotificationClick(payload.detail);
+    }
+  });
+
+  serviceWorkerBridgeSetup = true;
+}
+
 export async function initializeForegroundNotificationsForCurrentSession(
   deps: Pick<
     RegisterFcmTokenDeps,
@@ -108,6 +176,8 @@ export async function initializeForegroundNotificationsForCurrentSession(
       status: "unsupported",
     };
   }
+
+  setupServiceWorkerMessageBridge(serviceWorkerApi);
 
   const permission = notificationApi.permission ?? "unavailable";
 
@@ -158,6 +228,8 @@ export async function registerFcmTokenFromUserAction(
       status: "unsupported",
     };
   }
+
+  setupServiceWorkerMessageBridge(serviceWorkerApi);
 
   const messagingModule =
     deps.isSupported && deps.getMessaging && deps.getToken ? null : await getMessagingModule();
@@ -240,21 +312,17 @@ async function setupForegroundMessageHandler(firebaseApp: unknown) {
     const messaging = getMessaging(firebaseApp as FirebaseApp);
 
     onMessage(messaging, (payload) => {
-      const notification = payload.notification ?? {};
-      const data = payload.data ?? {};
-      const title = notification.title ?? data.title ?? "New message";
-      const body = notification.body ?? data.body ?? "";
-      window.dispatchEvent(
-        new CustomEvent(FOREGROUND_MESSAGE_EVENT, {
-          detail: {
-            title,
-            body,
-            conversationId: data.conversationId ?? null,
-            messageId: data.messageId ?? null,
-            senderId: data.senderId ?? null,
-          },
-        }),
-      );
+    const notification = payload.notification ?? {};
+    const data = payload.data ?? {};
+    const title = notification.title ?? data.title ?? "New message";
+    const body = notification.body ?? data.body ?? "";
+      dispatchForegroundMessage({
+        title,
+        body,
+        conversationId: data.conversationId ?? null,
+        messageId: data.messageId ?? null,
+        senderId: data.senderId ?? null,
+      });
 
       // Show notification in the foreground
       if ("Notification" in window && Notification.permission === "granted") {
