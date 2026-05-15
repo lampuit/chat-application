@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { logout } from "@/lib/auth/auth-service";
 import {
   FOREGROUND_MESSAGE_EVENT,
+  NOTIFICATION_CLICK_EVENT,
   initializeForegroundNotificationsForCurrentSession,
   registerFcmTokenFromUserAction,
 } from "@/lib/firebase/messaging";
@@ -103,6 +104,30 @@ export function ChatClient() {
       );
     };
   }, []);
+
+  React.useEffect(() => {
+    const handleNotificationClick = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        conversationId?: string | null;
+      }>;
+      const conversationId = customEvent.detail?.conversationId;
+
+      if (!conversationId) {
+        return;
+      }
+
+      setSelectedConversationId(conversationId);
+    };
+
+    window.addEventListener(NOTIFICATION_CLICK_EVENT, handleNotificationClick as EventListener);
+
+    return () => {
+      window.removeEventListener(
+        NOTIFICATION_CLICK_EVENT,
+        handleNotificationClick as EventListener,
+      );
+    };
+  }, [setSelectedConversationId]);
 
   const handleEnableNotifications = async () => {
     setIsRegisteringNotifications(true);

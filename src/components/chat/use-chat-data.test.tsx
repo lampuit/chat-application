@@ -218,4 +218,5 @@ describe("useChatData", () => {
       subtitle: "Owner User, Jane Doe, John Smith",
     });
   });
+
 });
