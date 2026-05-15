@@ -1,7 +1,9 @@
 node_modules
 .next
 .worktrees/
-docs
+docs/plans
+docs/deployment-guide.md
+docs/docs-smoke.test.ts
 coverage
 .env
 .env.local
