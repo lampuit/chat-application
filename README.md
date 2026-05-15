@@ -93,17 +93,9 @@ npm test
 npm run build
 ```
 
-Additional delivery docs:
-
-- [Database spec](/Users/lamp04/project/chat-app/docs/database-spec.md)
-- [Deployment guide](/Users/lamp04/project/chat-app/docs/deployment-guide.md)
-- [Feature checklist](/Users/lamp04/project/chat-app/docs/feature-checklist.md)
-
 ## Deployment & Published Link
 
 - Deployed site (production): https://chat-application-ruby-six.vercel.app
-
-- Deployment instructions and notes: [Deployment guide](docs/deployment-guide.md)
 
 ## Database Specification
 
@@ -121,11 +113,11 @@ The following core features are implemented and available in this repository:
 - Multi-device sign-in support
 - Protected `/chat` route requiring authentication
 - Registered user directory
-- Direct 1-to-1 conversations (create/open)
+- Direct 1-to-1 conversations (create/open), group chat
 - Realtime message updates via Firestore listeners
 - Message timestamps and ordering
 - Firestore security rules and indexes
-- Firebase Storage image uploads for chat messages
+- Firebase Storage image, file uploads for chat messages
 - Firebase Cloud Messaging push notifications (client + Cloud Functions)
 
 If you want these feature entries in a separate `FEATURES.md` file or linked from the project homepage, tell me and I will add it.
