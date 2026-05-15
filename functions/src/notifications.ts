@@ -1,10 +1,10 @@
-import { getApps, initializeApp } from "firebase-admin/app";
+import * as admin from "firebase-admin";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { logger } from "firebase-functions";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
-const adminApp = getApps().length === 0 ? initializeApp() : getApps()[0];
+const adminApp = admin.apps.length === 0 ? admin.initializeApp() : admin.app();
 
 export const MESSAGE_DOCUMENT_PATH =
   "conversations/{conversationId}/messages/{messageId}";

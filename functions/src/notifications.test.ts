@@ -163,9 +163,10 @@ describe("Firebase Functions notifications scaffold", () => {
     expect(notificationsSource).toContain("onDocumentCreated(");
     expect(notificationsSource).toContain("notifyOnMessageCreated");
     expect(notificationsSource).toContain("processMessageCreated");
-    expect(notificationsSource).toContain('from "firebase-admin/app"');
-    expect(notificationsSource).toContain("getApps().length === 0");
-    expect(notificationsSource).toContain("initializeApp()");
+    expect(notificationsSource).toContain('from "firebase-admin"');
+    expect(notificationsSource).toContain("admin.apps.length === 0");
+    expect(notificationsSource).toContain("admin.initializeApp()");
+    expect(notificationsSource).toContain("admin.app()");
   });
 });
 
