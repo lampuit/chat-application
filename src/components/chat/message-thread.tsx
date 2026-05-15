@@ -96,7 +96,7 @@ export function MessageThread({ hasSelection, isLoading, messages }: MessageThre
           <MessageSquareIcon className="h-9 w-9 text-white/90" />
         </div>
         <div className="max-w-sm space-y-2">
-          <p className="heading-font text-xl font-semibold tracking-[-0.04em] text-slate-950">It's quiet here</p>
+          <p className="heading-font text-xl font-semibold tracking-[-0.04em] text-slate-950">No messages yet</p>
           <p className="text-sm text-slate-500">
             Send the first message to kick off this conversation. Say hello!
           </p>

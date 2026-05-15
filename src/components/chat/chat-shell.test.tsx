@@ -139,6 +139,6 @@ describe("ChatShell", () => {
     expect(screen.getByTestId("message-thread-skeleton")).toBeInTheDocument();
     expect(screen.queryByText("No registered users yet.")).not.toBeInTheDocument();
     expect(screen.queryByText("No conversations yet.")).not.toBeInTheDocument();
-    expect(screen.queryByText("It's quiet here")).not.toBeInTheDocument();
+    expect(screen.queryByText("No messages yet")).not.toBeInTheDocument();
   });
 });

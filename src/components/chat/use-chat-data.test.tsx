@@ -3,6 +3,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatData } from "./use-chat-data";
 
+const { getFirebaseServicesMock } = vi.hoisted(() => ({
+  getFirebaseServicesMock: vi.fn(),
+}));
+
 type SnapshotDoc = {
   id: string;
   data: () => Record<string, unknown>;
@@ -50,9 +54,7 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 vi.mock("@/lib/firebase/client", () => ({
-  getFirebaseServices: () => ({
-    db: { mocked: true },
-  }),
+  getFirebaseServices: getFirebaseServicesMock,
 }));
 
 function getConversationListener() {
@@ -77,6 +79,21 @@ function getMessageListeners() {
 describe("useChatData", () => {
   beforeEach(() => {
     listeners.length = 0;
+    getFirebaseServicesMock.mockReset();
+    getFirebaseServicesMock.mockReturnValue({
+      db: { mocked: true },
+    });
+  });
+
+  it("stops users and conversations loading when Firebase services are unavailable", async () => {
+    getFirebaseServicesMock.mockReturnValue(null);
+
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(result.current.isUsersLoading).toBe(false);
+      expect(result.current.isConversationsLoading).toBe(false);
+    });
   });
 
   it("does not subscribe to messages for a pending conversation that is not in Firestore yet", async () => {
@@ -122,6 +139,37 @@ describe("useChatData", () => {
     await waitFor(() => {
       expect(getMessageListeners()).toHaveLength(1);
     });
+  });
+
+  it("stops messages loading when Firebase services are unavailable", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      result.current.setSelectedConversationId("conversation-1");
+    });
+
+    getFirebaseServicesMock.mockReturnValue(null);
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("conversation-1", {
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "",
+          }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isMessagesLoading).toBe(false);
+    });
+
+    expect(getMessageListeners()).toHaveLength(0);
   });
 
   it("maps group conversations to their group name instead of a direct-chat fallback", async () => {

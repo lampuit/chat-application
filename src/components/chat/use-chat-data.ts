@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 
+const SUBSCRIPTION_RETRY_DELAY_MS = 500;
+
 export type UserRecord = {
   uid: string;
   email: string;
@@ -84,6 +86,7 @@ export function useChatData(currentUserId: string | null) {
 
     let unsubscribeUsers: (() => void) | undefined;
     let unsubscribeConversations: (() => void) | undefined;
+    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     let isCancelled = false;
 
     async function subscribe() {
@@ -92,6 +95,11 @@ export function useChatData(currentUserId: string | null) {
       const services = getFirebaseServices();
 
       if (!services) {
+        setIsUsersLoading(false);
+        setIsConversationsLoading(false);
+        retryTimeout = setTimeout(() => {
+          setSubscriptionRefreshKey((currentValue) => currentValue + 1);
+        }, SUBSCRIPTION_RETRY_DELAY_MS);
         return;
       }
 
@@ -139,6 +147,9 @@ export function useChatData(currentUserId: string | null) {
 
     return () => {
       isCancelled = true;
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
       if (unsubscribeUsers) unsubscribeUsers();
       if (unsubscribeConversations) unsubscribeConversations();
     };
@@ -154,6 +165,7 @@ export function useChatData(currentUserId: string | null) {
     setIsMessagesLoading(true);
     const conversationId = selectedConversationId;
     let unsubscribe: (() => void) | undefined;
+    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     let isCancelled = false;
 
     async function subscribeToMessages() {
@@ -162,6 +174,10 @@ export function useChatData(currentUserId: string | null) {
       const services = getFirebaseServices();
 
       if (!services) {
+        setIsMessagesLoading(false);
+        retryTimeout = setTimeout(() => {
+          setSubscriptionRefreshKey((currentValue) => currentValue + 1);
+        }, SUBSCRIPTION_RETRY_DELAY_MS);
         return;
       }
 
@@ -188,6 +204,9 @@ export function useChatData(currentUserId: string | null) {
 
     return () => {
       isCancelled = true;
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
       if (unsubscribe) unsubscribe();
     };
   }, [selectedConversationExists, selectedConversationId, subscriptionRefreshKey]);
