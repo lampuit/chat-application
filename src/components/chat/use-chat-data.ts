@@ -1,7 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 
-const SUBSCRIPTION_RETRY_DELAY_MS = 500;
-
 export type UserRecord = {
   uid: string;
   email: string;
@@ -13,6 +11,7 @@ export type ConversationRecord = {
   type?: "direct" | "group";
   name?: string;
   ownerId?: string;
+  pending?: boolean;
   memberIds: string[];
   lastMessageText: string;
   lastMessageAt?: { toDate?: () => Date } | null;
@@ -35,45 +34,44 @@ export type MessageRecord = {
   id: string;
   senderId: string;
   text: string;
+  type?: "text" | "file";
+  deliveredTo?: string[];
+  readBy?: string[];
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
   createdAt?: { toDate?: () => Date } | null;
 };
 
 export function useChatData(currentUserId: string | null) {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
+  const [confirmedConversationIds, setConfirmedConversationIds] = useState<string[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [subscriptionRefreshKey, setSubscriptionRefreshKey] = useState(0);
   const selectedConversationExists = useMemo(
-    () =>
-      selectedConversationId != null &&
-      conversations.some((conversation) => conversation.id === selectedConversationId),
+    () => selectedConversationId != null && conversations.some((conversation) => conversation.id === selectedConversationId),
     [conversations, selectedConversationId],
   );
-
-  useEffect(() => {
-    const refreshSubscriptions = () => {
-      if (document.visibilityState === "visible") {
-        setSubscriptionRefreshKey((currentValue) => currentValue + 1);
-      }
-    };
-
-    window.addEventListener("focus", refreshSubscriptions);
-    document.addEventListener("visibilitychange", refreshSubscriptions);
-
-    return () => {
-      window.removeEventListener("focus", refreshSubscriptions);
-      document.removeEventListener("visibilitychange", refreshSubscriptions);
-    };
-  }, []);
+  const selectedConversationReady = useMemo(
+    () =>
+      selectedConversationId != null &&
+      conversations.some(
+        (conversation) =>
+          conversation.id === selectedConversationId &&
+          (!conversation.pending || confirmedConversationIds.includes(conversation.id)),
+      ),
+    [confirmedConversationIds, conversations, selectedConversationId],
+  );
 
   useEffect(() => {
     if (!currentUserId) {
       setUsers([]);
       setConversations([]);
+      setConfirmedConversationIds([]);
       setMessages([]);
       setIsUsersLoading(false);
       setIsConversationsLoading(false);
@@ -86,7 +84,6 @@ export function useChatData(currentUserId: string | null) {
 
     let unsubscribeUsers: (() => void) | undefined;
     let unsubscribeConversations: (() => void) | undefined;
-    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     let isCancelled = false;
 
     async function subscribe() {
@@ -97,9 +94,6 @@ export function useChatData(currentUserId: string | null) {
       if (!services) {
         setIsUsersLoading(false);
         setIsConversationsLoading(false);
-        retryTimeout = setTimeout(() => {
-          setSubscriptionRefreshKey((currentValue) => currentValue + 1);
-        }, SUBSCRIPTION_RETRY_DELAY_MS);
         return;
       }
 
@@ -126,10 +120,27 @@ export function useChatData(currentUserId: string | null) {
         ),
         (snapshot) => {
           setIsConversationsLoading(false);
+          const nextConfirmedConversationIds = new Set<string>();
           const nextConversations = snapshot.docs.map((doc) => ({
             id: doc.id,
+            pending: Boolean(doc.metadata?.hasPendingWrites),
             ...(doc.data() as Omit<ConversationRecord, "id">),
           }));
+          snapshot.docs.forEach((doc) => {
+            if (!doc.metadata?.hasPendingWrites) {
+              nextConfirmedConversationIds.add(doc.id);
+            }
+          });
+
+          setConfirmedConversationIds((currentConfirmedConversationIds) => {
+            currentConfirmedConversationIds.forEach((conversationId) => {
+              if (nextConversations.some((conversation) => conversation.id === conversationId)) {
+                nextConfirmedConversationIds.add(conversationId);
+              }
+            });
+
+            return Array.from(nextConfirmedConversationIds);
+          });
           setConversations(nextConversations);
 
           setSelectedConversationId((currentSelection) => {
@@ -140,6 +151,9 @@ export function useChatData(currentUserId: string | null) {
             return nextConversations[0]?.id ?? null;
           });
         },
+        () => {
+          setIsConversationsLoading(false);
+        },
       );
     }
 
@@ -147,13 +161,10 @@ export function useChatData(currentUserId: string | null) {
 
     return () => {
       isCancelled = true;
-      if (retryTimeout) {
-        clearTimeout(retryTimeout);
-      }
       if (unsubscribeUsers) unsubscribeUsers();
       if (unsubscribeConversations) unsubscribeConversations();
     };
-  }, [currentUserId, subscriptionRefreshKey]);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!selectedConversationId || !selectedConversationExists) {
@@ -162,10 +173,15 @@ export function useChatData(currentUserId: string | null) {
       return;
     }
 
+    if (!selectedConversationReady) {
+      setMessages([]);
+      setIsMessagesLoading(false);
+      return;
+    }
+
     setIsMessagesLoading(true);
     const conversationId = selectedConversationId;
     let unsubscribe: (() => void) | undefined;
-    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     let isCancelled = false;
 
     async function subscribeToMessages() {
@@ -175,9 +191,6 @@ export function useChatData(currentUserId: string | null) {
 
       if (!services) {
         setIsMessagesLoading(false);
-        retryTimeout = setTimeout(() => {
-          setSubscriptionRefreshKey((currentValue) => currentValue + 1);
-        }, SUBSCRIPTION_RETRY_DELAY_MS);
         return;
       }
 
@@ -190,12 +203,40 @@ export function useChatData(currentUserId: string | null) {
         ),
         (snapshot) => {
           setIsMessagesLoading(false);
-          setMessages(
-            snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...(doc.data() as Omit<MessageRecord, "id">),
-            })),
+          const nextMessages = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as Omit<MessageRecord, "id">),
+          }));
+          setMessages(nextMessages);
+
+          if (!currentUserId) {
+            return;
+          }
+
+          const messageIdsNeedingReceipts = nextMessages
+            .filter(
+              (message) =>
+                message.senderId !== currentUserId &&
+                (!message.deliveredTo?.includes(currentUserId) ||
+                  !message.readBy?.includes(currentUserId)),
+            )
+            .map((message) => message.id);
+
+          if (messageIdsNeedingReceipts.length === 0) {
+            return;
+          }
+
+          void import("@/lib/chat/messages").then(({ markConversationMessagesSeen }) =>
+            markConversationMessagesSeen(
+              conversationId,
+              currentUserId,
+              messageIdsNeedingReceipts,
+            ).catch(() => undefined),
           );
+        },
+        () => {
+          setIsMessagesLoading(false);
+          setMessages([]);
         },
       );
     }
@@ -204,12 +245,9 @@ export function useChatData(currentUserId: string | null) {
 
     return () => {
       isCancelled = true;
-      if (retryTimeout) {
-        clearTimeout(retryTimeout);
-      }
       if (unsubscribe) unsubscribe();
     };
-  }, [selectedConversationExists, selectedConversationId, subscriptionRefreshKey]);
+  }, [currentUserId, selectedConversationExists, selectedConversationId, selectedConversationReady]);
 
   function getMemberLabels(memberIds: string[]) {
     return memberIds.map((memberId) => {
@@ -291,31 +329,47 @@ export function useChatData(currentUserId: string | null) {
   }, [conversations, currentUserId, selectedConversationId, users]);
 
   const messageItems = useMemo(() => {
+    const selectedConversation = conversations.find(
+      (conversation) => conversation.id === selectedConversationId,
+    );
+    const otherMemberIds =
+      selectedConversation?.memberIds.filter((memberId) => memberId !== currentUserId) ?? [];
+
     return messages.map((message) => {
       const sender = users.find((entry) => entry.uid === message.senderId);
+      const isOwnMessage = message.senderId === currentUserId;
+      const receiptLabel = isOwnMessage
+        ? message.readBy?.some((memberId) => otherMemberIds.includes(memberId))
+          ? "Seen"
+          : message.deliveredTo?.some((memberId) => otherMemberIds.includes(memberId))
+            ? "Delivered"
+            : "Sent"
+        : undefined;
 
-      if ((message as any).type === "file") {
+      if (message.type === "file") {
         return {
           id: message.id,
           senderLabel: sender?.displayName ?? sender?.email ?? "Unknown user",
-          text: (message as any).text ?? "",
-          fileUrl: (message as any).fileUrl,
-          fileName: (message as any).fileName,
-          fileType: (message as any).fileType,
+          text: message.text ?? "",
+          fileUrl: message.fileUrl,
+          fileName: message.fileName,
+          fileType: message.fileType,
           createdAtLabel: message.createdAt?.toDate?.().toLocaleTimeString() ?? "Sending...",
-          isOwnMessage: message.senderId === currentUserId,
+          isOwnMessage,
+          receiptLabel,
         };
       }
 
       return {
         id: message.id,
         senderLabel: sender?.displayName ?? sender?.email ?? "Unknown user",
-        text: (message as any).text ?? "",
+        text: message.text ?? "",
         createdAtLabel: message.createdAt?.toDate?.().toLocaleTimeString() ?? "Sending...",
-        isOwnMessage: message.senderId === currentUserId,
+        isOwnMessage,
+        receiptLabel,
       };
     });
-  }, [currentUserId, messages, users]);
+  }, [conversations, currentUserId, messages, selectedConversationId, users]);
 
   return {
     users,

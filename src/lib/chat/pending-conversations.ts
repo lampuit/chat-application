@@ -5,6 +5,7 @@ type PendingConversation = {
   memberIds: string[];
   lastMessageText: string;
   lastMessageAt: null;
+  pending: true;
 };
 
 type ConversationLike = {
@@ -23,6 +24,7 @@ export function createPendingConversationRecord(
     memberIds: [currentUserId, otherUserId].sort(),
     lastMessageText: "",
     lastMessageAt: null,
+    pending: true,
   };
 }
 
@@ -39,6 +41,7 @@ export function createPendingGroupConversationRecord(
     memberIds: Array.from(new Set([...memberIds, currentUserId])).sort(),
     lastMessageText: "",
     lastMessageAt: null,
+    pending: true,
   };
 }
 

@@ -29,6 +29,7 @@ type ChatMessage = {
   text: string;
   createdAtLabel: string;
   isOwnMessage: boolean;
+  receiptLabel?: string;
   fileUrl?: string;
   fileName?: string;
   fileType?: string;

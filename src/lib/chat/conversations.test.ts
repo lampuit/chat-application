@@ -24,6 +24,8 @@ describe("createMessageRecord", () => {
       senderId: "user-1",
       type: "text",
       text: "Hello",
+      deliveredTo: ["user-1"],
+      readBy: ["user-1"],
       createdAt: timestampToken,
     });
   });
@@ -53,6 +55,8 @@ describe("createMessageRecord", () => {
       fileType: "application/pdf",
       fileSize: 512,
       text: "See attached",
+      deliveredTo: ["user-1"],
+      readBy: ["user-1"],
       createdAt: timestampToken,
     });
   });

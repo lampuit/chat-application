@@ -7,6 +7,7 @@ describe("MessageThread", () => {
     render(
       <MessageThread
         hasSelection
+        isLoading={false}
         messages={[
           {
             id: "message-1",
@@ -38,6 +39,7 @@ describe("MessageThread", () => {
     render(
       <MessageThread
         hasSelection
+        isLoading={false}
         messages={[
           {
             id: "message-3",
@@ -58,5 +60,26 @@ describe("MessageThread", () => {
       "https://example.com/spec.pdf",
     );
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("renders a receipt label for the current user's messages", () => {
+    render(
+      <MessageThread
+        hasSelection
+        isLoading={false}
+        messages={[
+          {
+            id: "message-4",
+            senderLabel: "You",
+            text: "Seen message",
+            createdAtLabel: "10:03",
+            isOwnMessage: true,
+            receiptLabel: "Seen",
+          },
+        ] as any}
+      />,
+    );
+
+    expect(screen.getByText("Seen")).toBeInTheDocument();
   });
 });

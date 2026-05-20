@@ -10,6 +10,7 @@ import {
   createPendingConversationRecord,
   createPendingConversationTracker,
 } from "@/lib/chat/pending-conversations";
+import { normalizeChatError } from "@/lib/chat/errors";
 import { validateChatUpload } from "@/lib/chat/upload-constraints";
 import type { ConversationRecord, MessageRecord } from "./use-chat-data";
 
@@ -36,6 +37,16 @@ export function useChatActions({
   const [isPending, startTransition] = useTransition();
   const pendingConversationTrackerRef = useRef(createPendingConversationTracker());
 
+  function removePendingConversation(conversationId: string) {
+    setConversations((currentConversations) =>
+      currentConversations.filter((conversation) => conversation.id !== conversationId),
+    );
+
+    if (selectedConversationId === conversationId) {
+      setSelectedConversationId(null);
+    }
+  }
+
   async function handleStartConversation(otherUserId: string) {
     if (!currentUserId) return;
 
@@ -51,6 +62,7 @@ export function useChatActions({
 
     const conversationId = crypto.randomUUID();
     const memberIds = [currentUserId, otherUserId].sort();
+    setUploadError(null);
     pendingConversationTrackerRef.current.rememberPartner(conversationId, otherUserId);
     setConversations((currentConversations) => [
       createPendingConversationRecord(conversationId, currentUserId, otherUserId),
@@ -58,26 +70,33 @@ export function useChatActions({
     ]);
     setSelectedConversationId(conversationId);
 
-    const { setDoc, doc, serverTimestamp } = await import("firebase/firestore");
-    const { getFirebaseServices } = await import("@/lib/firebase/client");
-    const services = getFirebaseServices();
+    try {
+      const { setDoc, doc, serverTimestamp } = await import("firebase/firestore");
+      const { getFirebaseServices } = await import("@/lib/firebase/client");
+      const services = getFirebaseServices();
 
-    if (!services) return;
+      if (!services) {
+        throw new Error("Firebase is not configured. Add the required environment variables.");
+      }
 
-    const writePromise = pendingConversationTrackerRef.current.trackWrite(
-      conversationId,
-      setDoc(doc(services.db, "conversations", conversationId), {
-        type: "direct",
-        memberIds,
-        memberKey: buildDirectMemberKey(currentUserId, otherUserId),
-        lastMessageText: "",
-        lastMessageSenderId: "",
-        lastMessageAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }),
-    );
-    await writePromise;
+      const writePromise = pendingConversationTrackerRef.current.trackWrite(
+        conversationId,
+        setDoc(doc(services.db, "conversations", conversationId), {
+          type: "direct",
+          memberIds,
+          memberKey: buildDirectMemberKey(currentUserId, otherUserId),
+          lastMessageText: "",
+          lastMessageSenderId: "",
+          lastMessageAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }),
+      );
+      await writePromise;
+    } catch (error) {
+      removePendingConversation(conversationId);
+      setUploadError(normalizeChatError(error));
+    }
   }
 
   async function handleCreateGroup(input: {
@@ -87,6 +106,7 @@ export function useChatActions({
     if (!currentUserId) return;
 
     const conversationId = crypto.randomUUID();
+    setUploadError(null);
     setConversations((currentConversations) => [
       createPendingGroupConversationRecord(
         conversationId,
@@ -98,13 +118,18 @@ export function useChatActions({
     ]);
     setSelectedConversationId(conversationId);
 
-    const writePromise = createGroupConversation({
-      conversationId,
-      currentUserId,
-      groupName: input.groupName,
-      memberIds: input.memberIds,
-    });
-    await pendingConversationTrackerRef.current.trackWrite(conversationId, writePromise);
+    try {
+      const writePromise = createGroupConversation({
+        conversationId,
+        currentUserId,
+        groupName: input.groupName,
+        memberIds: input.memberIds,
+      });
+      await pendingConversationTrackerRef.current.trackWrite(conversationId, writePromise);
+    } catch (error) {
+      removePendingConversation(conversationId);
+      setUploadError(normalizeChatError(error));
+    }
   }
 
   function getSelectedConversation() {
@@ -158,8 +183,7 @@ export function useChatActions({
           const services = getFirebaseServices();
 
           if (!services) {
-            setUploadError("Firebase is not configured.");
-            return;
+            throw new Error("Firebase is not configured. Add the required environment variables.");
           }
 
           const storage = getStorage(services.app);
@@ -213,8 +237,8 @@ export function useChatActions({
           senderId: currentUserId,
           text: nextMessage,
         });
-      } catch {
-        setUploadError("Upload failed. Please try again.");
+      } catch (error) {
+        setUploadError(normalizeChatError(error));
       } finally {
         if (file) {
           setIsUploading(false);

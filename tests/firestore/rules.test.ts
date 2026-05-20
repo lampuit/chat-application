@@ -29,6 +29,17 @@ describe("firestore rules", () => {
     );
   });
 
+  it("allows conversation members to update only message receipt fields", () => {
+    expect(rules).toContain("function allowedMessageUpdateKeys()");
+    expect(rules).toContain('"deliveredTo"');
+    expect(rules).toContain('"readBy"');
+    expect(rules).toContain(
+      'request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deliveredTo", "readBy"])',
+    );
+    expect(rules).toContain("allow update: if isConversationParticipant(conversationId)");
+    expect(rules).toContain("&& isSafeMessageReceiptUpdate();");
+  });
+
   it("checks conversation membership from the parent conversation for message access", () => {
     expect(rules).toContain(
       "get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberIds",

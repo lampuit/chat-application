@@ -14,6 +14,7 @@ describe("createPendingConversationRecord", () => {
       memberIds: ["user-a", "user-b"],
       lastMessageText: "",
       lastMessageAt: null,
+      pending: true,
     });
   });
 });

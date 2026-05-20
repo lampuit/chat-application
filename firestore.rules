@@ -48,11 +48,34 @@ service cloud.firestore {
       ];
     }
 
+    function allowedMessageUpdateKeys() {
+      return [
+        "conversationId",
+        "senderId",
+        "type",
+        "text",
+        "fileUrl",
+        "fileName",
+        "fileType",
+        "fileSize",
+        "createdAt",
+        "deliveredTo",
+        "readBy",
+      ];
+    }
+
     function isSafeUserSelfUpdate() {
       return request.resource.data.uid == userId
         && request.resource.data.keys().hasOnly(allowedUserDocumentKeys())
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedUserDocumentKeys())
         && (!("fcmTokens" in request.resource.data) || request.resource.data.fcmTokens is list);
+    }
+
+    function isSafeMessageReceiptUpdate() {
+      return request.resource.data.keys().hasOnly(allowedMessageUpdateKeys())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deliveredTo", "readBy"])
+        && (!("deliveredTo" in request.resource.data) || request.resource.data.deliveredTo is list)
+        && (!("readBy" in request.resource.data) || request.resource.data.readBy is list);
     }
 
     match /users/{userId} {
@@ -72,6 +95,8 @@ service cloud.firestore {
         allow create: if isConversationParticipant(conversationId)
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.conversationId == conversationId;
+        allow update: if isConversationParticipant(conversationId)
+          && isSafeMessageReceiptUpdate();
       }
     }
   }

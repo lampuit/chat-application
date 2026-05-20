@@ -41,6 +41,8 @@ export type Message =
       senderId: string;
       type: "text";
       text: string;
+      deliveredTo?: string[];
+      readBy?: string[];
       createdAt: FirestoreTimestamp;
     }
   | {
@@ -52,5 +54,7 @@ export type Message =
       fileType?: string;
       fileSize?: number;
       text?: string; // optional caption
+      deliveredTo?: string[];
+      readBy?: string[];
       createdAt: FirestoreTimestamp;
     };

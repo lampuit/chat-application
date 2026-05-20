@@ -22,6 +22,7 @@ type MessageThreadProps = {
     text: string;
     createdAtLabel: string;
     isOwnMessage: boolean;
+    receiptLabel?: string;
     fileUrl?: string;
     fileName?: string;
     fileType?: string;
@@ -212,6 +213,12 @@ export function MessageThread({ hasSelection, isLoading, messages }: MessageThre
                       message.isOwnMessage ? "text-sky-100/80 justify-end" : "text-slate-400 justify-start"
                     }`}>
                       {message.createdAtLabel}
+                      {message.isOwnMessage && message.receiptLabel ? (
+                        <>
+                          <span aria-hidden="true">.</span>
+                          <span>{message.receiptLabel}</span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 </div>

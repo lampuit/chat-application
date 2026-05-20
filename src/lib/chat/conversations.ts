@@ -58,6 +58,8 @@ export function createMessageRecord(
       fileType: (input as any).fileType,
       fileSize: (input as any).fileSize,
       text: (input as any).text,
+      deliveredTo: [senderId],
+      readBy: [senderId],
       createdAt: timestamp,
     };
   }
@@ -67,6 +69,8 @@ export function createMessageRecord(
     senderId,
     type: "text",
     text: (input as any).text ?? "",
+    deliveredTo: [senderId],
+    readBy: [senderId],
     createdAt: timestamp,
   };
 }

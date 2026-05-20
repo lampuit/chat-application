@@ -1,4 +1,5 @@
 import {
+  arrayUnion as firestoreArrayUnion,
   doc as firestoreDoc,
   serverTimestamp as firestoreServerTimestamp,
   writeBatch as firestoreWriteBatch,
@@ -89,6 +90,46 @@ export async function sendMessageToConversation(
       timestamp,
     ),
   );
+
+  await batch.commit();
+}
+
+export async function markConversationMessagesSeen(
+  conversationId: string,
+  currentUserId: string,
+  messageIds: string[],
+) {
+  const { getFirebaseServices } = await import("@/lib/firebase/client");
+  const services = getFirebaseServices();
+
+  if (!services) {
+    throw new Error("Firebase is not configured. Add the required environment variables.");
+  }
+
+  const batch = firestoreWriteBatch(services.db);
+  let hasChanges = false;
+
+  messageIds.forEach((messageId) => {
+    hasChanges = true;
+    batch.set(
+      firestoreDoc(
+        services.db,
+        "conversations",
+        conversationId,
+        "messages",
+        messageId,
+      ),
+      {
+        deliveredTo: firestoreArrayUnion(currentUserId),
+        readBy: firestoreArrayUnion(currentUserId),
+      },
+      { merge: true },
+    );
+  });
+
+  if (!hasChanges) {
+    return;
+  }
 
   await batch.commit();
 }

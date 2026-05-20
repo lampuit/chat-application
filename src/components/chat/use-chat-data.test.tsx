@@ -10,6 +10,9 @@ const { getFirebaseServicesMock } = vi.hoisted(() => ({
 type SnapshotDoc = {
   id: string;
   data: () => Record<string, unknown>;
+  metadata?: {
+    hasPendingWrites: boolean;
+  };
 };
 
 type QueryTarget =
@@ -28,10 +31,17 @@ const listeners: Array<{
   callback: (snapshot: { docs: SnapshotDoc[] }) => void;
 }> = [];
 
-function createDoc(id: string, data: Record<string, unknown>): SnapshotDoc {
+function createDoc(
+  id: string,
+  data: Record<string, unknown>,
+  options?: { hasPendingWrites?: boolean },
+): SnapshotDoc {
   return {
     id,
     data: () => data,
+    metadata: {
+      hasPendingWrites: options?.hasPendingWrites ?? false,
+    },
   };
 }
 
@@ -96,6 +106,25 @@ describe("useChatData", () => {
     });
   });
 
+  it("does not recreate user and conversation subscriptions when the page is re-activated", async () => {
+    renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(listeners).toHaveLength(2);
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(listeners).toHaveLength(2);
+  });
+
   it("does not subscribe to messages for a pending conversation that is not in Firestore yet", async () => {
     const { result } = renderHook(() => useChatData("user-1"));
 
@@ -112,6 +141,66 @@ describe("useChatData", () => {
     });
 
     expect(getMessageListeners()).toHaveLength(0);
+  });
+
+  it("does not subscribe to messages while the Firestore conversation snapshot still has pending writes", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      result.current.setConversations([
+        {
+          id: "pending-1",
+          type: "direct",
+          memberIds: ["user-1", "user-2"],
+          lastMessageText: "",
+          lastMessageAt: null,
+          pending: true,
+        },
+      ]);
+      result.current.setSelectedConversationId("pending-1");
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getMessageListeners()).toHaveLength(0);
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("pending-1", {
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "",
+          }, { hasPendingWrites: true }),
+        ],
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getMessageListeners()).toHaveLength(0);
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("pending-1", {
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "",
+          }, { hasPendingWrites: false }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(getMessageListeners()).toHaveLength(1);
+    });
   });
 
   it("subscribes to messages after the selected conversation appears in Firestore", async () => {
@@ -139,6 +228,60 @@ describe("useChatData", () => {
     await waitFor(() => {
       expect(getMessageListeners()).toHaveLength(1);
     });
+  });
+
+  it("keeps the existing message subscription when a confirmed conversation gets pending writes from a new message", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      result.current.setSelectedConversationId("conversation-1");
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("conversation-1", {
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "Hello",
+          }, { hasPendingWrites: false }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(getMessageListeners()).toHaveLength(1);
+    });
+
+    act(() => {
+      getMessageListeners()[0]?.callback({
+        docs: [
+          createDoc("message-1", {
+            senderId: "user-1",
+            text: "Hello",
+            type: "text",
+          }),
+        ],
+      });
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("conversation-1", {
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "Hello again",
+          }, { hasPendingWrites: true }),
+        ],
+      });
+    });
+
+    expect(getMessageListeners()).toHaveLength(1);
+    expect(result.current.isMessagesLoading).toBe(false);
+    expect(result.current.messageItems).toHaveLength(1);
   });
 
   it("stops messages loading when Firebase services are unavailable", async () => {
@@ -265,6 +408,78 @@ describe("useChatData", () => {
       title: "Product Squad",
       subtitle: "Owner User, Jane Doe, John Smith",
     });
+  });
+
+  it("maps own message receipts to sent, delivered, and seen states", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      listeners[0]?.callback({
+        docs: [
+          createDoc("user-1", {
+            email: "owner@example.com",
+            displayName: "Owner User",
+          }),
+          createDoc("user-2", {
+            email: "jane@example.com",
+            displayName: "Jane Doe",
+          }),
+        ],
+      });
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("conversation-1", {
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "Latest message",
+          }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(getMessageListeners()).toHaveLength(1);
+    });
+
+    act(() => {
+      getMessageListeners()[0]?.callback({
+        docs: [
+          createDoc("message-1", {
+            senderId: "user-1",
+            text: "Sent message",
+            type: "text",
+            deliveredTo: [],
+            readBy: [],
+          }),
+          createDoc("message-2", {
+            senderId: "user-1",
+            text: "Delivered message",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: [],
+          }),
+          createDoc("message-3", {
+            senderId: "user-1",
+            text: "Seen message",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: ["user-2"],
+          }),
+        ],
+      });
+    });
+
+    expect(result.current.messageItems.map((message) => message.receiptLabel)).toEqual([
+      "Sent",
+      "Delivered",
+      "Seen",
+    ]);
   });
 
 });
