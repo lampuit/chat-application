@@ -7,6 +7,10 @@ const { getFirebaseServicesMock } = vi.hoisted(() => ({
   getFirebaseServicesMock: vi.fn(),
 }));
 
+const { markConversationMessagesSeenMock } = vi.hoisted(() => ({
+  markConversationMessagesSeenMock: vi.fn(),
+}));
+
 type SnapshotDoc = {
   id: string;
   data: () => Record<string, unknown>;
@@ -67,6 +71,10 @@ vi.mock("@/lib/firebase/client", () => ({
   getFirebaseServices: getFirebaseServicesMock,
 }));
 
+vi.mock("@/lib/chat/messages", () => ({
+  markConversationMessagesSeen: markConversationMessagesSeenMock,
+}));
+
 function getConversationListener() {
   return listeners.find(
     (listener) =>
@@ -87,12 +95,17 @@ function getMessageListeners() {
 }
 
 describe("useChatData", () => {
+  const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
   beforeEach(() => {
     listeners.length = 0;
     getFirebaseServicesMock.mockReset();
     getFirebaseServicesMock.mockReturnValue({
       db: { mocked: true },
     });
+    markConversationMessagesSeenMock.mockReset();
+    markConversationMessagesSeenMock.mockResolvedValue(undefined);
+    consoleErrorSpy.mockClear();
   });
 
   it("stops users and conversations loading when Firebase services are unavailable", async () => {
@@ -410,7 +423,7 @@ describe("useChatData", () => {
     });
   });
 
-  it("maps own message receipts to sent, delivered, and seen states", async () => {
+  it("maps direct-chat own message receipts to sent and seen states", async () => {
     const { result } = renderHook(() => useChatData("user-1"));
 
     await waitFor(() => {
@@ -436,6 +449,7 @@ describe("useChatData", () => {
       getConversationListener()?.callback({
         docs: [
           createDoc("conversation-1", {
+            type: "direct",
             memberIds: ["user-1", "user-2"],
             lastMessageText: "Latest message",
           }),
@@ -458,11 +472,11 @@ describe("useChatData", () => {
             readBy: [],
           }),
           createDoc("message-2", {
-            senderId: "user-1",
-            text: "Delivered message",
+            senderId: "user-2",
+            text: "Reply",
             type: "text",
             deliveredTo: ["user-2"],
-            readBy: [],
+            readBy: ["user-2"],
           }),
           createDoc("message-3", {
             senderId: "user-1",
@@ -477,9 +491,105 @@ describe("useChatData", () => {
 
     expect(result.current.messageItems.map((message) => message.receiptLabel)).toEqual([
       "Sent",
-      "Delivered",
+      undefined,
       "Seen",
     ]);
+  });
+
+  it("marks messages seen only for direct conversations", async () => {
+    renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("group-1", {
+            type: "group",
+            name: "Team chat",
+            memberIds: ["user-1", "user-2", "user-3"],
+            lastMessageText: "Hello",
+          }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(getMessageListeners()).toHaveLength(1);
+    });
+
+    act(() => {
+      getMessageListeners()[0]?.callback({
+        docs: [
+          createDoc("message-1", {
+            senderId: "user-2",
+            text: "Hello team",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: ["user-2"],
+          }),
+        ],
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(markConversationMessagesSeenMock).not.toHaveBeenCalled();
+  });
+
+  it("reports errors when marking direct message receipts fails", async () => {
+    renderHook(() => useChatData("user-1"));
+    markConversationMessagesSeenMock.mockRejectedValueOnce(new Error("permission-denied"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("conversation-1", {
+            type: "direct",
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "Hello",
+          }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(getMessageListeners()).toHaveLength(1);
+    });
+
+    act(() => {
+      getMessageListeners()[0]?.callback({
+        docs: [
+          createDoc("message-1", {
+            senderId: "user-2",
+            text: "Hello there",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: ["user-2"],
+          }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to mark messages as seen",
+        expect.objectContaining({
+          conversationId: "conversation-1",
+          currentUserId: "user-1",
+          messageIds: ["message-1"],
+          error: expect.any(Error),
+        }),
+      );
+    });
   });
 
 });

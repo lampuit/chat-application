@@ -34,10 +34,15 @@ describe("firestore rules", () => {
     expect(rules).toContain('"deliveredTo"');
     expect(rules).toContain('"readBy"');
     expect(rules).toContain(
-      'request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deliveredTo", "readBy"])',
+      'request.writeFields.hasOnly(["deliveredTo", "readBy"])',
     );
     expect(rules).toContain("allow update: if isConversationParticipant(conversationId)");
     expect(rules).toContain("&& isSafeMessageReceiptUpdate();");
+  });
+
+  it("does not require transformed receipt fields to be plain lists during updates", () => {
+    expect(rules).not.toContain('request.resource.data.deliveredTo is list');
+    expect(rules).not.toContain('request.resource.data.readBy is list');
   });
 
   it("checks conversation membership from the parent conversation for message access", () => {

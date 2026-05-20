@@ -12,6 +12,27 @@ const DownloadIcon = ({ className }: { className?: string }) => (
     <line x1="12" x2="12" y1="15" y2="3"/>
   </svg>
 );
+const ReceiptCheckIcon = ({ className, double = false }: { className?: string; double?: boolean }) => (
+  <svg
+    aria-hidden="true"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    strokeWidth="2"
+    viewBox="0 0 24 24"
+  >
+    {double ? (
+      <>
+        <path d="M7 12.5l2.5 2.5 5-6" />
+        <path d="M12 12.5l2.5 2.5 5-6" />
+      </>
+    ) : (
+      <path d="M7 12.5l3 3 7-8" />
+    )}
+  </svg>
+);
 
 type MessageThreadProps = {
   hasSelection: boolean;
@@ -117,6 +138,10 @@ export function MessageThread({ hasSelection, isLoading, messages }: MessageThre
             .join("")
             .substring(0, 2)
             .toUpperCase() || "U";
+          const receiptToneClass =
+            message.receiptLabel === "Seen"
+              ? "bg-emerald-400/18 text-emerald-50 ring-1 ring-emerald-200/25"
+              : "bg-white/14 text-sky-50 ring-1 ring-white/18";
 
           return (
             <li
@@ -216,7 +241,16 @@ export function MessageThread({ hasSelection, isLoading, messages }: MessageThre
                       {message.isOwnMessage && message.receiptLabel ? (
                         <>
                           <span aria-hidden="true">.</span>
-                          <span>{message.receiptLabel}</span>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${receiptToneClass}`}
+                            data-testid={`receipt-${message.receiptLabel.toLowerCase()}`}
+                          >
+                            <ReceiptCheckIcon
+                              className="h-3.5 w-3.5"
+                              double={message.receiptLabel === "Seen"}
+                            />
+                            <span>{message.receiptLabel}</span>
+                          </span>
                         </>
                       ) : null}
                     </div>

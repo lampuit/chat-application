@@ -72,10 +72,7 @@ service cloud.firestore {
     }
 
     function isSafeMessageReceiptUpdate() {
-      return request.resource.data.keys().hasOnly(allowedMessageUpdateKeys())
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["deliveredTo", "readBy"])
-        && (!("deliveredTo" in request.resource.data) || request.resource.data.deliveredTo is list)
-        && (!("readBy" in request.resource.data) || request.resource.data.readBy is list);
+      return request.writeFields.hasOnly(["deliveredTo", "readBy"]);
     }
 
     match /users/{userId} {

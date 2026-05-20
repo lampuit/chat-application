@@ -82,4 +82,34 @@ describe("MessageThread", () => {
 
     expect(screen.getByText("Seen")).toBeInTheDocument();
   });
+
+  it("renders distinct sent and seen receipt badges", () => {
+    render(
+      <MessageThread
+        hasSelection
+        isLoading={false}
+        messages={[
+          {
+            id: "message-5",
+            senderLabel: "You",
+            text: "Sent message",
+            createdAtLabel: "10:04",
+            isOwnMessage: true,
+            receiptLabel: "Sent",
+          },
+          {
+            id: "message-6",
+            senderLabel: "You",
+            text: "Seen message",
+            createdAtLabel: "10:05",
+            isOwnMessage: true,
+            receiptLabel: "Seen",
+          },
+        ] as any}
+      />,
+    );
+
+    expect(screen.getByTestId("receipt-sent")).toHaveTextContent("Sent");
+    expect(screen.getByTestId("receipt-seen")).toHaveTextContent("Seen");
+  });
 });

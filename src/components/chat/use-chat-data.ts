@@ -66,6 +66,12 @@ export function useChatData(currentUserId: string | null) {
       ),
     [confirmedConversationIds, conversations, selectedConversationId],
   );
+  const selectedConversationType = useMemo(
+    () =>
+      conversations.find((conversation) => conversation.id === selectedConversationId)?.type ??
+      null,
+    [conversations, selectedConversationId],
+  );
 
   useEffect(() => {
     if (!currentUserId) {
@@ -213,6 +219,10 @@ export function useChatData(currentUserId: string | null) {
             return;
           }
 
+          if (selectedConversationType === "group") {
+            return;
+          }
+
           const messageIdsNeedingReceipts = nextMessages
             .filter(
               (message) =>
@@ -231,7 +241,14 @@ export function useChatData(currentUserId: string | null) {
               conversationId,
               currentUserId,
               messageIdsNeedingReceipts,
-            ).catch(() => undefined),
+            ).catch((error) => {
+              console.error("Failed to mark messages as seen", {
+                conversationId,
+                currentUserId,
+                messageIds: messageIdsNeedingReceipts,
+                error,
+              });
+            }),
           );
         },
         () => {
@@ -247,7 +264,13 @@ export function useChatData(currentUserId: string | null) {
       isCancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [currentUserId, selectedConversationExists, selectedConversationId, selectedConversationReady]);
+  }, [
+    currentUserId,
+    selectedConversationExists,
+    selectedConversationId,
+    selectedConversationReady,
+    selectedConversationType,
+  ]);
 
   function getMemberLabels(memberIds: string[]) {
     return memberIds.map((memberId) => {
@@ -332,19 +355,22 @@ export function useChatData(currentUserId: string | null) {
     const selectedConversation = conversations.find(
       (conversation) => conversation.id === selectedConversationId,
     );
+    const isDirectConversation = selectedConversation?.type !== "group";
     const otherMemberIds =
       selectedConversation?.memberIds.filter((memberId) => memberId !== currentUserId) ?? [];
 
-    return messages.map((message) => {
+    return messages.map((message, index) => {
       const sender = users.find((entry) => entry.uid === message.senderId);
       const isOwnMessage = message.senderId === currentUserId;
-      const receiptLabel = isOwnMessage
-        ? message.readBy?.some((memberId) => otherMemberIds.includes(memberId))
-          ? "Seen"
-          : message.deliveredTo?.some((memberId) => otherMemberIds.includes(memberId))
-            ? "Delivered"
+      const nextMessage = messages[index + 1];
+      const isLastOwnMessageInSequence =
+        isOwnMessage && (!nextMessage || nextMessage.senderId !== currentUserId);
+      const receiptLabel =
+        isDirectConversation && isOwnMessage && isLastOwnMessageInSequence
+          ? message.readBy?.some((memberId) => otherMemberIds.includes(memberId))
+            ? "Seen"
             : "Sent"
-        : undefined;
+          : undefined;
 
       if (message.type === "file") {
         return {

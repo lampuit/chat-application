@@ -111,7 +111,7 @@ export async function markConversationMessagesSeen(
 
   messageIds.forEach((messageId) => {
     hasChanges = true;
-    batch.set(
+    batch.update(
       firestoreDoc(
         services.db,
         "conversations",
@@ -123,7 +123,6 @@ export async function markConversationMessagesSeen(
         deliveredTo: firestoreArrayUnion(currentUserId),
         readBy: firestoreArrayUnion(currentUserId),
       },
-      { merge: true },
     );
   });
 
