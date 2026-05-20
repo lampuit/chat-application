@@ -75,7 +75,7 @@ export function ChatShell({
   onOpenCreateGroup,
 }: ChatShellProps) {
   return (
-    <div className="grid h-full min-h-0 gap-4 grid-rows-[1fr_1fr_2fr] lg:grid-rows-1 lg:grid-cols-[minmax(0,310px)_minmax(0,330px)_minmax(0,1fr)]">
+    <div className="grid h-full min-h-0 gap-4 overflow-hidden grid-rows-[1fr_1fr_2fr] lg:grid-rows-1 lg:grid-cols-[minmax(0,310px)_minmax(0,330px)_minmax(0,1fr)]">
       <UserList
         currentUserId={currentUserId}
         isLoading={isUsersLoading}
@@ -107,6 +107,7 @@ export function ChatShell({
           </div>
         </div>
         <MessageThread
+          conversationId={selectedConversationId}
           hasSelection={Boolean(selectedConversationId)}
           isLoading={isMessagesLoading}
           messages={messages}

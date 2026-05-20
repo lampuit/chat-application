@@ -297,6 +297,75 @@ describe("useChatData", () => {
     expect(result.current.messageItems).toHaveLength(1);
   });
 
+  it("clears rendered messages immediately when switching to a different conversation", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("conversation-1", {
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "Hello",
+          }),
+          createDoc("conversation-2", {
+            memberIds: ["user-1", "user-3"],
+            lastMessageText: "Newest",
+          }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(getMessageListeners()).toHaveLength(1);
+    });
+
+    act(() => {
+      listeners[0]?.callback({
+        docs: [
+          createDoc("user-1", {
+            email: "owner@example.com",
+            displayName: "Owner User",
+          }),
+          createDoc("user-2", {
+            email: "jane@example.com",
+            displayName: "Jane Doe",
+          }),
+          createDoc("user-3", {
+            email: "john@example.com",
+            displayName: "John Smith",
+          }),
+        ],
+      });
+    });
+
+    act(() => {
+      getMessageListeners()[0]?.callback({
+        docs: [
+          createDoc("message-1", {
+            senderId: "user-2",
+            text: "Hello from conversation 1",
+            type: "text",
+          }),
+        ],
+      });
+    });
+
+    expect(result.current.selectedConversationId).toBe("conversation-1");
+    expect(result.current.messageItems).toHaveLength(1);
+    expect(result.current.messageItems[0]?.text).toBe("Hello from conversation 1");
+
+    act(() => {
+      result.current.setSelectedConversationId("conversation-2");
+    });
+
+    expect(result.current.selectedConversationId).toBe("conversation-2");
+    expect(result.current.messageItems).toHaveLength(0);
+  });
+
   it("stops messages loading when Firebase services are unavailable", async () => {
     const { result } = renderHook(() => useChatData("user-1"));
 

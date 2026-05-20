@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef } from "react";
 
 const MessageSquareIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -35,6 +35,7 @@ const ReceiptCheckIcon = ({ className, double = false }: { className?: string; d
 );
 
 type MessageThreadProps = {
+  conversationId: string | null;
   hasSelection: boolean;
   isLoading: boolean;
   messages: Array<{
@@ -50,12 +51,64 @@ type MessageThreadProps = {
   }>;
 };
 
-export function MessageThread({ hasSelection, isLoading, messages }: MessageThreadProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+function isNearBottom(element: HTMLDivElement) {
+  const remainingDistance = element.scrollHeight - element.scrollTop - element.clientHeight;
+  return remainingDistance <= 64;
+}
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+export function MessageThread({
+  conversationId,
+  hasSelection,
+  isLoading,
+  messages,
+}: MessageThreadProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const previousConversationIdRef = useRef<string | null>(null);
+  const previousLastMessageIdRef = useRef<string | null>(null);
+  const hasScrolledToConversationRef = useRef(false);
+  const wasNearBottomRef = useRef(true);
+
+  useLayoutEffect(() => {
+    if (!conversationId || messages.length === 0) {
+      previousConversationIdRef.current = conversationId;
+      previousLastMessageIdRef.current = messages.at(-1)?.id ?? null;
+      hasScrolledToConversationRef.current = false;
+      wasNearBottomRef.current = true;
+      return;
+    }
+
+    const scrollContainer = scrollContainerRef.current;
+    const bottomElement = bottomRef.current;
+
+    if (!scrollContainer || !bottomElement) {
+      return;
+    }
+
+    const lastMessageId = messages.at(-1)?.id ?? null;
+    const isConversationChanged = previousConversationIdRef.current !== conversationId;
+    const isInitialScrollForConversation =
+      isConversationChanged || !hasScrolledToConversationRef.current;
+    const hasNewLatestMessage = previousLastMessageIdRef.current !== lastMessageId;
+    const shouldKeepLatestOwnMessageVisible = Boolean(messages.at(-1)?.isOwnMessage);
+
+    if (isInitialScrollForConversation) {
+      bottomElement.scrollIntoView({ behavior: "auto", block: "end" });
+      hasScrolledToConversationRef.current = true;
+      wasNearBottomRef.current = true;
+    } else if (
+      hasNewLatestMessage &&
+      (wasNearBottomRef.current || shouldKeepLatestOwnMessageVisible)
+    ) {
+      bottomElement.scrollIntoView({ behavior: "smooth", block: "end" });
+      wasNearBottomRef.current = true;
+    } else {
+      wasNearBottomRef.current = isNearBottom(scrollContainer);
+    }
+
+    previousConversationIdRef.current = conversationId;
+    previousLastMessageIdRef.current = lastMessageId;
+  }, [conversationId, messages]);
 
   if (!hasSelection) {
     return (
@@ -128,7 +181,13 @@ export function MessageThread({ hasSelection, isLoading, messages }: MessageThre
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6 custom-scrollbar">
+    <div
+      ref={scrollContainerRef}
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-6 pb-8 sm:px-6 sm:pb-10 custom-scrollbar"
+      onScroll={(event) => {
+        wasNearBottomRef.current = isNearBottom(event.currentTarget);
+      }}
+    >
       <ul className="flex flex-col gap-5">
         {messages.map((message, index) => {
           const showAvatar = !message.isOwnMessage && (index === 0 || messages[index - 1].isOwnMessage || messages[index - 1].senderLabel !== message.senderLabel);
@@ -261,7 +320,7 @@ export function MessageThread({ hasSelection, isLoading, messages }: MessageThre
           );
         })}
       </ul>
-      <div ref={bottomRef} className="h-1" />
+      <div ref={bottomRef} aria-hidden="true" className="h-1 shrink-0" />
     </div>
   );
 }

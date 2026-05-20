@@ -48,6 +48,7 @@ export function useChatData(currentUserId: string | null) {
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
   const [confirmedConversationIds, setConfirmedConversationIds] = useState<string[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const [messagesConversationId, setMessagesConversationId] = useState<string | null>(null);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
@@ -79,6 +80,7 @@ export function useChatData(currentUserId: string | null) {
       setConversations([]);
       setConfirmedConversationIds([]);
       setMessages([]);
+      setMessagesConversationId(null);
       setIsUsersLoading(false);
       setIsConversationsLoading(false);
       setIsMessagesLoading(false);
@@ -175,16 +177,19 @@ export function useChatData(currentUserId: string | null) {
   useEffect(() => {
     if (!selectedConversationId || !selectedConversationExists) {
       setMessages([]);
+      setMessagesConversationId(null);
       setIsMessagesLoading(false);
       return;
     }
 
     if (!selectedConversationReady) {
       setMessages([]);
+      setMessagesConversationId(null);
       setIsMessagesLoading(false);
       return;
     }
 
+    setMessagesConversationId(null);
     setIsMessagesLoading(true);
     const conversationId = selectedConversationId;
     let unsubscribe: (() => void) | undefined;
@@ -213,6 +218,7 @@ export function useChatData(currentUserId: string | null) {
             id: doc.id,
             ...(doc.data() as Omit<MessageRecord, "id">),
           }));
+          setMessagesConversationId(conversationId);
           setMessages(nextMessages);
 
           if (!currentUserId) {
@@ -253,6 +259,7 @@ export function useChatData(currentUserId: string | null) {
         },
         () => {
           setIsMessagesLoading(false);
+          setMessagesConversationId(null);
           setMessages([]);
         },
       );
@@ -352,6 +359,10 @@ export function useChatData(currentUserId: string | null) {
   }, [conversations, currentUserId, selectedConversationId, users]);
 
   const messageItems = useMemo(() => {
+    if (messagesConversationId !== selectedConversationId) {
+      return [];
+    }
+
     const selectedConversation = conversations.find(
       (conversation) => conversation.id === selectedConversationId,
     );
@@ -395,7 +406,7 @@ export function useChatData(currentUserId: string | null) {
         receiptLabel,
       };
     });
-  }, [conversations, currentUserId, messages, selectedConversationId, users]);
+  }, [conversations, currentUserId, messages, messagesConversationId, selectedConversationId, users]);
 
   return {
     users,

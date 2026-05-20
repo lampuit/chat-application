@@ -164,7 +164,7 @@ export function ChatClient() {
   const hasTotpEnrollment = Boolean(currentUser.hasTotpEnrollment);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-5 overflow-y-auto pr-1 lg:gap-6">
+    <div className="flex h-full min-h-0 flex-col gap-5 overflow-hidden pr-1 lg:gap-6">
       {foregroundToast ? (
         <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-full max-w-sm justify-end sm:right-6 sm:top-6">
           <div className="pointer-events-auto rounded-[1.5rem] border border-sky-200/80 bg-white/95 p-4 shadow-[0_24px_60px_rgba(14,165,233,0.18)] ring-1 ring-slate-900/5 backdrop-blur">
@@ -271,7 +271,7 @@ export function ChatClient() {
         </div>
         <TwoFactorSettings />
       </div>
-      <div className="min-h-[32rem] flex-1">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <ChatShell
           conversations={conversationItems}
           currentUserId={currentUserId}
