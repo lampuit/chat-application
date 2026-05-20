@@ -141,6 +141,38 @@ describe("registerWithEmailAndPassword", () => {
       displayName: "Captain",
     });
   });
+
+  it("normalizes Firebase auth error codes into a friendly registration message", async () => {
+    const createUser = vi.fn().mockRejectedValue({
+      code: "auth/email-already-in-use",
+    });
+
+    await expect(
+      registerWithEmailAndPassword("person@example.com", "secret123", "Captain", {
+        auth: "auth-instance",
+        createUserWithEmailAndPassword: createUser,
+      }).catch((error) => error),
+    ).resolves.toMatchObject({
+      message: "This email address is already in use.",
+    });
+  });
+});
+
+describe("loginWithEmailAndPassword", () => {
+  it("normalizes Firebase auth error codes into a friendly login message", async () => {
+    const signIn = vi.fn().mockRejectedValue({
+      code: "auth/invalid-credential",
+    });
+
+    await expect(
+      loginWithEmailAndPassword("user@example.com", "secret123", {
+        auth: "auth-instance",
+        signInWithEmailAndPassword: signIn,
+      }).catch((error) => error),
+    ).resolves.toMatchObject({
+      message: "Email or password is incorrect.",
+    });
+  });
 });
 
 describe("startTotpEnrollment", () => {
