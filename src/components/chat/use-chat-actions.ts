@@ -1,17 +1,10 @@
 import { useRef, useState, useTransition } from "react";
-import {
-  createDirectConversationWithFirstMessage,
-  createGroupConversation,
-} from "@/lib/chat/conversations";
+import { createDirectConversationWithFirstMessage, createGroupConversation } from "@/lib/chat/conversations";
 import { buildDirectMemberKey } from "@/lib/chat/member-key";
-import { sendMessageToConversation } from "@/lib/chat/messages";
-import {
-  createPendingGroupConversationRecord,
-  createPendingConversationRecord,
-  createPendingConversationTracker,
-} from "@/lib/chat/pending-conversations";
+import { createPendingGroupConversationRecord, createPendingConversationRecord, createPendingConversationTracker } from "@/lib/chat/pending-conversations";
 import { normalizeChatError } from "@/lib/chat/errors";
 import { validateChatUpload } from "@/lib/chat/upload-constraints";
+import { handleFileUploadAndSend, handleTextMessageSend } from "./use-chat-actions-message";
 import type { ConversationRecord, MessageRecord } from "./use-chat-data";
 
 interface UseChatActionsProps {
@@ -38,10 +31,7 @@ export function useChatActions({
   const pendingConversationTrackerRef = useRef(createPendingConversationTracker());
 
   function removePendingConversation(conversationId: string) {
-    setConversations((currentConversations) =>
-      currentConversations.filter((conversation) => conversation.id !== conversationId),
-    );
-
+    setConversations((c) => c.filter((conv) => conv.id !== conversationId));
     if (selectedConversationId === conversationId) {
       setSelectedConversationId(null);
     }
@@ -49,36 +39,31 @@ export function useChatActions({
 
   async function handleStartConversation(otherUserId: string) {
     if (!currentUserId) return;
-
-    const existingConversation = conversations.find((conversation) =>
-      buildDirectMemberKey(currentUserId, otherUserId) ===
-      buildDirectMemberKey(conversation.memberIds[0] ?? "", conversation.memberIds[1] ?? ""),
+    const existingConversation = conversations.find(
+      (conversation) =>
+        buildDirectMemberKey(currentUserId, otherUserId) ===
+        buildDirectMemberKey(conversation.memberIds[0] ?? "", conversation.memberIds[1] ?? ""),
     );
-
     if (existingConversation) {
       setSelectedConversationId(existingConversation.id);
       return;
     }
-
     const conversationId = crypto.randomUUID();
     const memberIds = [currentUserId, otherUserId].sort();
     setUploadError(null);
     pendingConversationTrackerRef.current.rememberPartner(conversationId, otherUserId);
-    setConversations((currentConversations) => [
+    setConversations((c) => [
       createPendingConversationRecord(conversationId, currentUserId, otherUserId),
-      ...currentConversations.filter((conversation) => conversation.id !== conversationId),
+      ...c.filter((conversation) => conversation.id !== conversationId),
     ]);
     setSelectedConversationId(conversationId);
-
     try {
       const { setDoc, doc, serverTimestamp } = await import("firebase/firestore");
       const { getFirebaseServices } = await import("@/lib/firebase/client");
       const services = getFirebaseServices();
-
       if (!services) {
         throw new Error("Firebase is not configured. Add the required environment variables.");
       }
-
       const writePromise = pendingConversationTrackerRef.current.trackWrite(
         conversationId,
         setDoc(doc(services.db, "conversations", conversationId), {
@@ -99,25 +84,15 @@ export function useChatActions({
     }
   }
 
-  async function handleCreateGroup(input: {
-    groupName: string;
-    memberIds: string[];
-  }) {
+  async function handleCreateGroup(input: { groupName: string; memberIds: string[] }) {
     if (!currentUserId) return;
-
     const conversationId = crypto.randomUUID();
     setUploadError(null);
-    setConversations((currentConversations) => [
-      createPendingGroupConversationRecord(
-        conversationId,
-        currentUserId,
-        input.groupName,
-        input.memberIds,
-      ),
-      ...currentConversations.filter((conversation) => conversation.id !== conversationId),
+    setConversations((c) => [
+      createPendingGroupConversationRecord(conversationId, currentUserId, input.groupName, input.memberIds),
+      ...c.filter((conversation) => conversation.id !== conversationId),
     ]);
     setSelectedConversationId(conversationId);
-
     try {
       const writePromise = createGroupConversation({
         conversationId,
@@ -132,111 +107,33 @@ export function useChatActions({
     }
   }
 
-  function getSelectedConversation() {
-    return conversations.find((conversation) => conversation.id === selectedConversationId);
-  }
-
-  function getOtherUserIdForConversation(conversationId: string) {
-    return pendingConversationTrackerRef.current.resolveOtherUserId(
-      conversationId,
-      currentUserId,
-      conversations,
-    );
-  }
-
   function handleSendMessage(file?: File) {
     if (!currentUserId || !selectedConversationId || isUploading) return;
-
+    const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
     const hasMessages = messages.length > 0;
     const nextMessage = draftMessage.trim();
-
     if (file) {
       const validationError = validateChatUpload(file);
-
       if (validationError) {
         setUploadError(validationError);
         return;
       }
     }
-
     setUploadError(null);
-
     if (!file) {
       setDraftMessage("");
     }
-
     startTransition(async () => {
       try {
         if (!hasMessages) {
           await pendingConversationTrackerRef.current.waitForWrite(selectedConversationId);
         }
-
-        const selectedConversation = getSelectedConversation();
-        const isExistingGroupConversation = selectedConversation?.type === "group";
-
         if (file) {
           setIsUploading(true);
-          const { getDownloadURL, ref: storageRef, uploadBytes, getStorage } = await import(
-            "firebase/storage"
-          );
-          const { getFirebaseServices } = await import("@/lib/firebase/client");
-          const services = getFirebaseServices();
-
-          if (!services) {
-            throw new Error("Firebase is not configured. Add the required environment variables.");
-          }
-
-          const storage = getStorage(services.app);
-          const filename = `${Date.now()}_${file.name}`;
-          const path = `conversations/${selectedConversationId}/files/${filename}`;
-          const fileRef = storageRef(storage, path);
-
-          await uploadBytes(fileRef, file as Blob);
-          const url = await getDownloadURL(fileRef);
-
-          if (!hasMessages && !isExistingGroupConversation) {
-            await createDirectConversationWithFirstMessage({
-              conversationId: selectedConversationId,
-              currentUserId,
-              otherUserId: getOtherUserIdForConversation(selectedConversationId),
-              fileUrl: url,
-              fileName: file.name,
-              fileType: file.type,
-              fileSize: file.size,
-              text: nextMessage,
-            });
-          } else {
-            await sendMessageToConversation({
-              conversationId: selectedConversationId,
-              senderId: currentUserId,
-              text: nextMessage,
-              fileUrl: url,
-              fileName: file.name,
-              fileType: file.type,
-              fileSize: file.size,
-            });
-          }
-
-          return;
+          await handleFileUploadAndSend(file, selectedConversationId, currentUserId, nextMessage, selectedConversation, hasMessages, pendingConversationTrackerRef);
+        } else if (nextMessage) {
+          await handleTextMessageSend(selectedConversationId, currentUserId, nextMessage, selectedConversation, hasMessages, pendingConversationTrackerRef);
         }
-
-        if (!nextMessage) return;
-
-        if (!hasMessages && !isExistingGroupConversation) {
-          await createDirectConversationWithFirstMessage({
-            conversationId: selectedConversationId,
-            currentUserId,
-            otherUserId: getOtherUserIdForConversation(selectedConversationId),
-            text: nextMessage,
-          });
-          return;
-        }
-
-        await sendMessageToConversation({
-          conversationId: selectedConversationId,
-          senderId: currentUserId,
-          text: nextMessage,
-        });
       } catch (error) {
         setUploadError(normalizeChatError(error));
       } finally {
