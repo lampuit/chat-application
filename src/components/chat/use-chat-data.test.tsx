@@ -565,6 +565,95 @@ describe("useChatData", () => {
     ]);
   });
 
+  it("maps direct-chat own message receipts to sent, delivered, and seen states", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      listeners[0]?.callback({
+        docs: [
+          createDoc("user-1", {
+            email: "owner@example.com",
+            displayName: "Owner User",
+          }),
+          createDoc("user-2", {
+            email: "jane@example.com",
+            displayName: "Jane Doe",
+          }),
+        ],
+      });
+    });
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc("conversation-1", {
+            type: "direct",
+            memberIds: ["user-1", "user-2"],
+            lastMessageText: "Latest message",
+          }),
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(getMessageListeners()).toHaveLength(1);
+    });
+
+    act(() => {
+      getMessageListeners()[0]?.callback({
+        docs: [
+          createDoc("message-1", {
+            senderId: "user-1",
+            text: "Sent message",
+            type: "text",
+            deliveredTo: [],
+            readBy: [],
+          }),
+          createDoc("message-2", {
+            senderId: "user-2",
+            text: "Reply",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: ["user-2"],
+          }),
+          createDoc("message-3", {
+            senderId: "user-1",
+            text: "Delivered message",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: [],
+          }),
+          createDoc("message-4", {
+            senderId: "user-2",
+            text: "Another reply",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: ["user-2"],
+          }),
+          createDoc("message-5", {
+            senderId: "user-1",
+            text: "Seen message",
+            type: "text",
+            deliveredTo: ["user-2"],
+            readBy: ["user-2"],
+          }),
+        ],
+      });
+    });
+
+    expect(result.current.messageItems.map((message) => message.receiptLabel)).toEqual([
+      "Sent",
+      undefined,
+      "Delivered",
+      undefined,
+      "Seen",
+    ]);
+  });
+
   it("marks messages seen only for direct conversations", async () => {
     renderHook(() => useChatData("user-1"));
 

@@ -376,10 +376,18 @@ export function useChatData(currentUserId: string | null) {
       const nextMessage = messages[index + 1];
       const isLastOwnMessageInSequence =
         isOwnMessage && (!nextMessage || nextMessage.senderId !== currentUserId);
+      const wasReadByOtherMember = message.readBy?.some((memberId) =>
+        otherMemberIds.includes(memberId),
+      );
+      const wasDeliveredToOtherMember = message.deliveredTo?.some((memberId) =>
+        otherMemberIds.includes(memberId),
+      );
       const receiptLabel =
         isDirectConversation && isOwnMessage && isLastOwnMessageInSequence
-          ? message.readBy?.some((memberId) => otherMemberIds.includes(memberId))
+          ? wasReadByOtherMember
             ? "Seen"
+            : wasDeliveredToOtherMember
+              ? "Delivered"
             : "Sent"
           : undefined;
 
@@ -391,6 +399,7 @@ export function useChatData(currentUserId: string | null) {
           fileUrl: message.fileUrl,
           fileName: message.fileName,
           fileType: message.fileType,
+          createdAtDate: message.createdAt?.toDate?.() ?? null,
           createdAtLabel: message.createdAt?.toDate?.().toLocaleTimeString() ?? "Sending...",
           isOwnMessage,
           receiptLabel,
@@ -401,6 +410,7 @@ export function useChatData(currentUserId: string | null) {
         id: message.id,
         senderLabel: sender?.displayName ?? sender?.email ?? "Unknown user",
         text: message.text ?? "",
+        createdAtDate: message.createdAt?.toDate?.() ?? null,
         createdAtLabel: message.createdAt?.toDate?.().toLocaleTimeString() ?? "Sending...",
         isOwnMessage,
         receiptLabel,

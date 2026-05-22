@@ -15,6 +15,7 @@ describe("MessageThread", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -130,6 +131,131 @@ describe("MessageThread", () => {
 
     expect(screen.getByTestId("receipt-sent")).toHaveTextContent("Sent");
     expect(screen.getByTestId("receipt-seen")).toHaveTextContent("Seen");
+  });
+
+  it("renders a delivered receipt badge", () => {
+    render(
+      <MessageThread
+        conversationId="conversation-1"
+        hasSelection
+        isLoading={false}
+        messages={[
+          {
+            id: "message-7",
+            senderLabel: "You",
+            text: "Delivered message",
+            createdAtLabel: "10:06",
+            isOwnMessage: true,
+            receiptLabel: "Delivered",
+          },
+        ] as any}
+      />,
+    );
+
+    expect(screen.getByTestId("receipt-delivered")).toHaveTextContent("Delivered");
+  });
+
+  it("renders one date separator for consecutive messages on the same day", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 1, 12, 0));
+
+    render(
+      <MessageThread
+        conversationId="conversation-1"
+        hasSelection
+        isLoading={false}
+        messages={[
+          {
+            id: "message-1",
+            senderLabel: "Alice",
+            text: "Morning update",
+            createdAtLabel: "09:00",
+            createdAtDate: new Date(2026, 4, 22, 9, 0),
+            isOwnMessage: false,
+          },
+          {
+            id: "message-2",
+            senderLabel: "You",
+            text: "Reply",
+            createdAtLabel: "09:05",
+            createdAtDate: new Date(2026, 4, 22, 9, 5),
+            isOwnMessage: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText("22/05/2026")).toHaveLength(1);
+  });
+
+  it("renders a new date separator before the first message of a new day", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 1, 12, 0));
+
+    render(
+      <MessageThread
+        conversationId="conversation-1"
+        hasSelection
+        isLoading={false}
+        messages={[
+          {
+            id: "message-1",
+            senderLabel: "Alice",
+            text: "Day one",
+            createdAtLabel: "23:50",
+            createdAtDate: new Date(2026, 4, 21, 23, 50),
+            isOwnMessage: false,
+          },
+          {
+            id: "message-2",
+            senderLabel: "You",
+            text: "Day two",
+            createdAtLabel: "08:00",
+            createdAtDate: new Date(2026, 4, 22, 8, 0),
+            isOwnMessage: true,
+          },
+        ]}
+      />,
+    );
+
+    const separators = screen.getAllByTestId("message-date-separator");
+    expect(separators).toHaveLength(2);
+    expect(separators[0]).toHaveTextContent("21/05/2026");
+    expect(separators[1]).toHaveTextContent("22/05/2026");
+  });
+
+  it("renders 'Hôm nay' and 'Hôm qua' separators using local dates", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 22, 12, 0));
+
+    render(
+      <MessageThread
+        conversationId="conversation-1"
+        hasSelection
+        isLoading={false}
+        messages={[
+          {
+            id: "message-1",
+            senderLabel: "Alice",
+            text: "Yesterday message",
+            createdAtLabel: "18:00",
+            createdAtDate: new Date(2026, 4, 21, 18, 0),
+            isOwnMessage: false,
+          },
+          {
+            id: "message-2",
+            senderLabel: "You",
+            text: "Today message",
+            createdAtLabel: "09:15",
+            createdAtDate: new Date(2026, 4, 22, 9, 15),
+            isOwnMessage: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Hôm qua")).toBeInTheDocument();
+    expect(screen.getByText("Hôm nay")).toBeInTheDocument();
   });
 
   it("jumps to the latest message immediately when opening a conversation", () => {
