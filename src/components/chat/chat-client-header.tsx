@@ -1,6 +1,6 @@
 import React from "react";
+import type { User } from "firebase/auth";
 import { logout } from "@/lib/auth/auth-service";
-import type { User } from "@/lib/auth/types";
 
 interface ChatClientHeaderProps {
   currentUser: User;

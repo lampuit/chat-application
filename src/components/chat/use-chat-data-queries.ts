@@ -22,6 +22,7 @@ export function useUsersAndConversationsSubscription(currentUserId: string | nul
 
     setIsUsersLoading(true);
     setIsConversationsLoading(true);
+    const activeCurrentUserId = currentUserId;
 
     let unsubscribeUsers: (() => void) | undefined;
     let unsubscribeConversations: (() => void) | undefined;
@@ -29,7 +30,7 @@ export function useUsersAndConversationsSubscription(currentUserId: string | nul
 
     async function subscribe() {
       unsubscribeUsers = await subscribeToUsers(
-        currentUserId,
+        activeCurrentUserId,
         (users) => {
           setIsUsersLoading(false);
           setUsers(users);
@@ -42,7 +43,7 @@ export function useUsersAndConversationsSubscription(currentUserId: string | nul
       if (isCancelled) return;
 
       unsubscribeConversations = await subscribeToConversations(
-        currentUserId,
+        activeCurrentUserId,
         (conversations, confirmedIds) => {
           setIsConversationsLoading(false);
           setConfirmedConversationIds((current) => {
@@ -106,6 +107,7 @@ export function useMessagesSubscription(
     setMessagesConversationId(null);
     setIsMessagesLoading(true);
     const conversationId = selectedConversationId;
+    const activeCurrentUserId = currentUserId;
     let unsubscribe: (() => void) | undefined;
     let isCancelled = false;
 
@@ -114,15 +116,15 @@ export function useMessagesSubscription(
       setMessagesConversationId(conversationId);
       setMessages(nextMessages);
 
-      if (!currentUserId || selectedConversationType === "group") {
+      if (!activeCurrentUserId || selectedConversationType === "group") {
         return;
       }
 
       const messageIdsNeedingReceipts = nextMessages
         .filter(
           (msg) =>
-            msg.senderId !== currentUserId &&
-            (!msg.deliveredTo?.includes(currentUserId) || !msg.readBy?.includes(currentUserId)),
+            msg.senderId !== activeCurrentUserId &&
+            (!msg.deliveredTo?.includes(activeCurrentUserId) || !msg.readBy?.includes(activeCurrentUserId)),
         )
         .map((msg) => msg.id);
 
@@ -131,9 +133,9 @@ export function useMessagesSubscription(
       }
 
       void import("@/lib/chat/messages").then(({ markConversationMessagesSeen }) =>
-        markConversationMessagesSeen(conversationId, currentUserId, messageIdsNeedingReceipts).catch(
+        markConversationMessagesSeen(conversationId, activeCurrentUserId, messageIdsNeedingReceipts).catch(
           (error) => {
-            console.error("Failed to mark messages as seen", { conversationId, currentUserId, messageIds: messageIdsNeedingReceipts, error });
+            console.error("Failed to mark messages as seen", { conversationId, currentUserId: activeCurrentUserId, messageIds: messageIdsNeedingReceipts, error });
           },
         ),
       );
@@ -142,7 +144,7 @@ export function useMessagesSubscription(
     async function subscribe() {
       unsubscribe = await subscribeToMessages(
         conversationId,
-        currentUserId,
+        activeCurrentUserId,
         handleMessagesSnapshot,
         () => {
           setIsMessagesLoading(false);
