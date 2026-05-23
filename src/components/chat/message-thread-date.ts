@@ -1,4 +1,8 @@
-export function isSameLocalDate(dateA: Date, dateB: Date) {
+export function isSameLocalDate(dateA: Date | null | undefined, dateB: Date | null | undefined) {
+  if (!dateA || !dateB) {
+    return false;
+  }
+
   return (
     dateA.getFullYear() === dateB.getFullYear() &&
     dateA.getMonth() === dateB.getMonth() &&

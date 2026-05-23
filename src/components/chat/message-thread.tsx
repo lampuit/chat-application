@@ -206,10 +206,12 @@ export function MessageThread({
       <ul className="flex flex-col gap-5">
         {messages.map((message, index) => {
           const previousMessage = messages[index - 1];
-          const shouldShowDateSeparator =
-            Boolean(message.createdAtDate) &&
-            (!previousMessage?.createdAtDate ||
-              !isSameLocalDate(message.createdAtDate, previousMessage.createdAtDate));
+          const currentCreatedAtDate = message.createdAtDate;
+          const previousCreatedAtDate = previousMessage?.createdAtDate;
+          const shouldShowDateSeparator = currentCreatedAtDate
+            ? !previousCreatedAtDate ||
+                !isSameLocalDate(currentCreatedAtDate, previousCreatedAtDate)
+            : false;
           const showAvatar = !message.isOwnMessage && (index === 0 || messages[index - 1].isOwnMessage || messages[index - 1].senderLabel !== message.senderLabel);
           const initials = message.senderLabel
             .split(" ")
