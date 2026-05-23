@@ -6,15 +6,29 @@ import { ChatShell } from "@/components/chat/chat-shell";
 import { CreateGroupModal } from "@/components/chat/create-group-modal";
 import { useAuth } from "@/components/auth/auth-provider";
 import { logout } from "@/lib/auth/auth-service";
+import {
+  FOREGROUND_MESSAGE_EVENT,
+  NOTIFICATION_CLICK_EVENT,
+  initializeForegroundNotificationsForCurrentSession,
+  registerFcmTokenFromUserAction,
+} from "@/lib/firebase/messaging";
 import { useChatData } from "./use-chat-data";
 import { useChatActions } from "./use-chat-actions";
-import { useNotificationHandlers } from "./use-notification-handlers";
 
 export function ChatClient() {
+  const [foregroundToast, setForegroundToast] = React.useState<{
+    title: string;
+    body: string;
+    conversationId: string | null;
+    messageId: string | null;
+    senderId: string | null;
+  } | null>(null);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = React.useState(false);
+  const [isRegisteringNotifications, setIsRegisteringNotifications] = React.useState(false);
+  const [notificationFeedback, setNotificationFeedback] = React.useState<string | null>(null);
   const { user } = useAuth();
   const currentUser = user;
   const currentUserId = currentUser?.uid ?? null;
-  const [isCreateGroupOpen, setIsCreateGroupOpen] = React.useState(false);
 
   const {
     users,
@@ -49,26 +63,109 @@ export function ChatClient() {
     messages,
   });
 
-  const {
-    foregroundToast,
-    setForegroundToast,
-    isRegisteringNotifications,
-    notificationFeedback,
-    handleEnableNotifications,
-  } = useNotificationHandlers(setSelectedConversationId);
-
   if (!currentUserId || !currentUser) {
     return null;
   }
 
+  React.useEffect(() => {
+    void initializeForegroundNotificationsForCurrentSession();
+  }, [currentUserId]);
+
+  React.useEffect(() => {
+    const handleForegroundMessage = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        title?: string;
+        body?: string;
+        conversationId?: string | null;
+        messageId?: string | null;
+        senderId?: string | null;
+      }>;
+      const detail = customEvent.detail;
+
+      if (!detail?.title && !detail?.body) {
+        return;
+      }
+
+      setForegroundToast({
+        title: detail.title ?? "New message",
+        body: detail.body ?? "",
+        conversationId: detail.conversationId ?? null,
+        messageId: detail.messageId ?? null,
+        senderId: detail.senderId ?? null,
+      });
+    };
+
+    window.addEventListener(FOREGROUND_MESSAGE_EVENT, handleForegroundMessage as EventListener);
+
+    return () => {
+      window.removeEventListener(
+        FOREGROUND_MESSAGE_EVENT,
+        handleForegroundMessage as EventListener,
+      );
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const handleNotificationClick = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        conversationId?: string | null;
+      }>;
+      const conversationId = customEvent.detail?.conversationId;
+
+      if (!conversationId) {
+        return;
+      }
+
+      setSelectedConversationId(conversationId);
+    };
+
+    window.addEventListener(NOTIFICATION_CLICK_EVENT, handleNotificationClick as EventListener);
+
+    return () => {
+      window.removeEventListener(
+        NOTIFICATION_CLICK_EVENT,
+        handleNotificationClick as EventListener,
+      );
+    };
+  }, [setSelectedConversationId]);
+
+  const handleEnableNotifications = async () => {
+    setIsRegisteringNotifications(true);
+    setNotificationFeedback(null);
+
+    try {
+      const result = await registerFcmTokenFromUserAction(currentUserId);
+
+      if (result.status === "registered") {
+        setNotificationFeedback("Notifications enabled for this device.");
+        return;
+      }
+
+      if (result.status === "permission-not-granted") {
+        setNotificationFeedback("Notifications stayed off. You can enable them later from this device.");
+        return;
+      }
+
+      setNotificationFeedback("Notifications are not available on this browser right now.");
+    } catch {
+      setNotificationFeedback("Notifications are not available on this browser right now.");
+    } finally {
+      setIsRegisteringNotifications(false);
+    }
+  };
+
   const displayName = currentUser.displayName ?? currentUser.email ?? "Realtime Chat";
-  const displayNameInitials = displayName.split(/\s+/).filter(Boolean).slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "").join("");
+  const displayNameInitials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
   const hasTotpEnrollment = Boolean(currentUser.hasTotpEnrollment);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 overflow-hidden pr-1 lg:gap-6">
-      {foregroundToast && (
+      {foregroundToast ? (
         <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-full max-w-sm justify-end sm:right-6 sm:top-6">
           <div className="pointer-events-auto rounded-[1.5rem] border border-sky-200/80 bg-white/95 p-4 shadow-[0_24px_60px_rgba(14,165,233,0.18)] ring-1 ring-slate-900/5 backdrop-blur">
             <div className="flex items-start gap-3">
@@ -80,13 +177,18 @@ export function ChatClient() {
                 <p className="text-sm font-semibold text-slate-950">{foregroundToast.title}</p>
                 <p className="text-sm text-slate-600">{foregroundToast.body}</p>
               </div>
-              <button aria-label="Dismiss notification" className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" onClick={() => setForegroundToast(null)} type="button">
+              <button
+                aria-label="Dismiss notification"
+                className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => setForegroundToast(null)}
+                type="button"
+              >
                 x
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
       <div className="shrink-0 space-y-4">
         <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/5 sm:p-6">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.08),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(20,184,166,0.08),transparent_32%)]" />
@@ -118,7 +220,11 @@ export function ChatClient() {
                   2-step enabled
                 </span>
               ) : null}
-              <button className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0" onClick={() => void logout()} type="button">
+              <button
+                className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0"
+                onClick={() => void logout()}
+                type="button"
+              >
                 Logout
               </button>
             </div>
@@ -150,13 +256,18 @@ export function ChatClient() {
                 Turn on push alerts for new messages on this device.
               </p>
             </div>
-            <button className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-sky-500 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-sky-300" disabled={isRegisteringNotifications} onClick={() => void handleEnableNotifications(currentUserId)} type="button">
+            <button
+              className="rounded-2xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-sky-500 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-sky-300"
+              disabled={isRegisteringNotifications}
+              onClick={() => void handleEnableNotifications()}
+              type="button"
+            >
               {isRegisteringNotifications ? "Enabling..." : "Enable notifications"}
             </button>
           </div>
-          {notificationFeedback && (
+          {notificationFeedback ? (
             <p className="mt-3 text-sm text-slate-600">{notificationFeedback}</p>
-          )}
+          ) : null}
         </div>
         <TwoFactorSettings />
       </div>
@@ -188,7 +299,7 @@ export function ChatClient() {
           users={users.filter((entry) => entry.uid !== currentUserId)}
         />
       </div>
-      {isPending && <p className="shrink-0 text-sm text-slate-500">Sending...</p>}
+      {isPending ? <p className="shrink-0 text-sm text-slate-500">Sending...</p> : null}
     </div>
   );
 }

@@ -28,6 +28,7 @@ type ChatMessage = {
   senderLabel: string;
   text: string;
   createdAtLabel: string;
+  createdAtDate?: Date | null;
   isOwnMessage: boolean;
   receiptLabel?: string;
   fileUrl?: string;
