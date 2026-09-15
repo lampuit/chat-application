@@ -1,7 +1,7 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useChatData } from "./use-chat-data";
+import { useChatData } from "@/components/chat/use-chat-data";
 
 const { getFirebaseServicesMock } = vi.hoisted(() => ({
   getFirebaseServicesMock: vi.fn(),
@@ -94,7 +94,7 @@ function getMessageListeners() {
   );
 }
 
-describe("useChatData message state", () => {
+describe("useChatData loading and subscriptions", () => {
   beforeEach(() => {
     listeners.length = 0;
     getFirebaseServicesMock.mockReset();
@@ -105,7 +105,37 @@ describe("useChatData message state", () => {
     markConversationMessagesSeenMock.mockResolvedValue(undefined);
   });
 
-  it("keeps the existing message subscription when a confirmed conversation gets pending writes from a new message", async () => {
+  it("stops users and conversations loading when Firebase services are unavailable", async () => {
+    getFirebaseServicesMock.mockReturnValue(null);
+
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(result.current.isUsersLoading).toBe(false);
+      expect(result.current.isConversationsLoading).toBe(false);
+    });
+  });
+
+  it("does not recreate user and conversation subscriptions when the page is re-activated", async () => {
+    renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(listeners).toHaveLength(2);
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(listeners).toHaveLength(2);
+  });
+
+  it("does not subscribe to messages for a pending conversation that is not in Firestore yet", async () => {
     const { result } = renderHook(() => useChatData("user-1"));
 
     await waitFor(() => {
@@ -113,17 +143,72 @@ describe("useChatData message state", () => {
     });
 
     act(() => {
-      result.current.setSelectedConversationId("conversation-1");
+      result.current.setSelectedConversationId("pending-1");
     });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getMessageListeners()).toHaveLength(0);
+  });
+
+  it("does not subscribe to messages while the Firestore conversation snapshot still has pending writes", async () => {
+    const { result } = renderHook(() => useChatData("user-1"));
+
+    await waitFor(() => {
+      expect(getConversationListener()).toBeDefined();
+    });
+
+    act(() => {
+      result.current.setConversations([
+        {
+          id: "pending-1",
+          type: "direct",
+          memberIds: ["user-1", "user-2"],
+          lastMessageText: "",
+          lastMessageAt: null,
+          pending: true,
+        },
+      ]);
+      result.current.setSelectedConversationId("pending-1");
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getMessageListeners()).toHaveLength(0);
 
     act(() => {
       getConversationListener()?.callback({
         docs: [
           createDoc(
-            "conversation-1",
+            "pending-1",
             {
               memberIds: ["user-1", "user-2"],
-              lastMessageText: "Hello",
+              lastMessageText: "",
+            },
+            { hasPendingWrites: true },
+          ),
+        ],
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getMessageListeners()).toHaveLength(0);
+
+    act(() => {
+      getConversationListener()?.callback({
+        docs: [
+          createDoc(
+            "pending-1",
+            {
+              memberIds: ["user-1", "user-2"],
+              lastMessageText: "",
             },
             { hasPendingWrites: false },
           ),
@@ -134,108 +219,9 @@ describe("useChatData message state", () => {
     await waitFor(() => {
       expect(getMessageListeners()).toHaveLength(1);
     });
-
-    act(() => {
-      getMessageListeners()[0]?.callback({
-        docs: [
-          createDoc("message-1", {
-            senderId: "user-1",
-            text: "Hello",
-            type: "text",
-          }),
-        ],
-      });
-    });
-
-    act(() => {
-      getConversationListener()?.callback({
-        docs: [
-          createDoc(
-            "conversation-1",
-            {
-              memberIds: ["user-1", "user-2"],
-              lastMessageText: "Hello again",
-            },
-            { hasPendingWrites: true },
-          ),
-        ],
-      });
-    });
-
-    expect(getMessageListeners()).toHaveLength(1);
-    expect(result.current.isMessagesLoading).toBe(false);
-    expect(result.current.messageItems).toHaveLength(1);
   });
 
-  it("clears rendered messages immediately when switching to a different conversation", async () => {
-    const { result } = renderHook(() => useChatData("user-1"));
-
-    await waitFor(() => {
-      expect(getConversationListener()).toBeDefined();
-    });
-
-    act(() => {
-      getConversationListener()?.callback({
-        docs: [
-          createDoc("conversation-1", {
-            memberIds: ["user-1", "user-2"],
-            lastMessageText: "Hello",
-          }),
-          createDoc("conversation-2", {
-            memberIds: ["user-1", "user-3"],
-            lastMessageText: "Newest",
-          }),
-        ],
-      });
-    });
-
-    await waitFor(() => {
-      expect(getMessageListeners()).toHaveLength(1);
-    });
-
-    act(() => {
-      listeners[0]?.callback({
-        docs: [
-          createDoc("user-1", {
-            email: "owner@example.com",
-            displayName: "Owner User",
-          }),
-          createDoc("user-2", {
-            email: "jane@example.com",
-            displayName: "Jane Doe",
-          }),
-          createDoc("user-3", {
-            email: "john@example.com",
-            displayName: "John Smith",
-          }),
-        ],
-      });
-    });
-
-    act(() => {
-      getMessageListeners()[0]?.callback({
-        docs: [
-          createDoc("message-1", {
-            senderId: "user-2",
-            text: "Hello from conversation 1",
-            type: "text",
-          }),
-        ],
-      });
-    });
-
-    expect(result.current.selectedConversationId).toBe("conversation-1");
-    expect(result.current.messageItems[0]?.text).toBe("Hello from conversation 1");
-
-    act(() => {
-      result.current.setSelectedConversationId("conversation-2");
-    });
-
-    expect(result.current.selectedConversationId).toBe("conversation-2");
-    expect(result.current.messageItems).toHaveLength(0);
-  });
-
-  it("stops messages loading when Firebase services are unavailable", async () => {
+  it("subscribes to messages after the selected conversation appears in Firestore", async () => {
     const { result } = renderHook(() => useChatData("user-1"));
 
     await waitFor(() => {
@@ -245,8 +231,6 @@ describe("useChatData message state", () => {
     act(() => {
       result.current.setSelectedConversationId("conversation-1");
     });
-
-    getFirebaseServicesMock.mockReturnValue(null);
 
     act(() => {
       getConversationListener()?.callback({
@@ -260,9 +244,7 @@ describe("useChatData message state", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.isMessagesLoading).toBe(false);
+      expect(getMessageListeners()).toHaveLength(1);
     });
-
-    expect(getMessageListeners()).toHaveLength(0);
   });
 });

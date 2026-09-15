@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useChatActions } from "./use-chat-actions";
+import { useChatActions } from "@/components/chat/use-chat-actions";
 
 const {
   createDirectConversationWithFirstMessage,

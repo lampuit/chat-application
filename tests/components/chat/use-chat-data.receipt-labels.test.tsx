@@ -1,7 +1,7 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useChatData } from "./use-chat-data";
+import { useChatData } from "@/components/chat/use-chat-data";
 
 const { getFirebaseServicesMock } = vi.hoisted(() => ({
   getFirebaseServicesMock: vi.fn(),

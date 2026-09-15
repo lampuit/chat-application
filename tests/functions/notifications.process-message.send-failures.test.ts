@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import * as notificationsModule from "./notifications";
+import * as notificationsModule from "../../functions/src/notifications";
 
 type MessageRecord = {
   senderId: string;
@@ -94,70 +94,56 @@ function createDeps() {
   };
 }
 
-describe("processMessageCreated skips", () => {
-  it("logs a structured skip when the message snapshot is missing", async () => {
-    const processMessageCreated = getProcessMessageCreated();
-    const deps = createDeps();
-
-    await processMessageCreated(
-      {
-        conversationId: "conversation-1",
-        messageId: "message-1",
-        message: null,
-      },
-      deps,
-    );
-
-    expect(deps.getConversation).not.toHaveBeenCalled();
-    expect(deps.sendEachForMulticast).not.toHaveBeenCalled();
-    expect(deps.logger.info).toHaveBeenCalledWith(
-      "Skipping message notification",
-      expect.objectContaining({
-        reason: "missing_snapshot",
-        conversationId: "conversation-1",
-        messageId: "message-1",
-      }),
-    );
-  });
-
-  it("logs a structured skip when the parent conversation does not exist", async () => {
-    const processMessageCreated = getProcessMessageCreated();
-    const deps = createDeps();
-
-    deps.getConversation.mockResolvedValue(null);
-
-    await processMessageCreated(
-      {
-        conversationId: "conversation-1",
-        messageId: "message-1",
-        message: {
-          senderId: "sender-1",
-          text: "Hello there",
-        },
-      },
-      deps,
-    );
-
-    expect(deps.getConversation).toHaveBeenCalledWith("conversation-1");
-    expect(deps.getUser).not.toHaveBeenCalled();
-    expect(deps.sendEachForMulticast).not.toHaveBeenCalled();
-    expect(deps.logger.info).toHaveBeenCalledWith(
-      "Skipping message notification",
-      expect.objectContaining({
-        reason: "missing_conversation",
-        conversationId: "conversation-1",
-        messageId: "message-1",
-        senderId: "sender-1",
-      }),
-    );
-  });
-
-  it("logs a structured skip when there are no recipients besides the sender", async () => {
+describe("processMessageCreated failures", () => {
+  it("removes permanently invalid tokens from recipient users after multicast send failures", async () => {
     const processMessageCreated = getProcessMessageCreated();
     const deps = createDeps();
 
     deps.getConversation.mockResolvedValue({
-      memberIds: ["sender-1"],
+      memberIds: ["sender-1", "receiver-1", "receiver-2", "receiver-3"],
+    });
+    deps.getUser.mockImplementation(async (uid: string) => {
+      if (uid === "receiver-1") {
+        return {
+          displayName: uid,
+          fcmTokens: ["token-1"],
+        };
+      }
+
+      if (uid === "receiver-2") {
+        return {
+          displayName: uid,
+          fcmTokens: ["token-2"],
+        };
+      }
+
+      return {
+        displayName: uid,
+        fcmTokens: ["token-3"],
+      };
+    });
+    deps.sendEachForMulticast.mockResolvedValue({
+      successCount: 1,
+      failureCount: 2,
+      responses: [
+        {
+          success: true,
+        },
+        {
+          success: false,
+          error: {
+            code: "messaging/invalid-registration-token",
+            message: "Token is not valid",
+          },
+        },
+        {
+          success: false,
+          error: {
+            code: "messaging/registration-token-not-registered",
+            message: "Token not registered",
+          },
+        },
+      ],
     });
 
     await processMessageCreated(
@@ -172,36 +158,79 @@ describe("processMessageCreated skips", () => {
       deps,
     );
 
-    expect(deps.getUser).not.toHaveBeenCalled();
-    expect(deps.sendEachForMulticast).not.toHaveBeenCalled();
-    expect(deps.logger.info).toHaveBeenCalledWith(
-      "Skipping message notification",
+    expect(deps.sendEachForMulticast).toHaveBeenCalledOnce();
+    expect(deps.removeTokenFromUser).toHaveBeenCalledTimes(2);
+    expect(deps.removeTokenFromUser).toHaveBeenNthCalledWith(1, "receiver-2", "token-2");
+    expect(deps.removeTokenFromUser).toHaveBeenNthCalledWith(2, "receiver-3", "token-3");
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      "Message notification send failures",
       expect.objectContaining({
-        reason: "missing_recipients",
         conversationId: "conversation-1",
         messageId: "message-1",
         senderId: "sender-1",
+        failureCount: 2,
+        failures: [
+          {
+            token: "token-2",
+            code: "messaging/invalid-registration-token",
+            message: "Token is not valid",
+          },
+          {
+            token: "token-3",
+            code: "messaging/registration-token-not-registered",
+            message: "Token not registered",
+          },
+        ],
+      }),
+    );
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      "Message notification invalid token cleanup",
+      expect.objectContaining({
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        senderId: "sender-1",
+        cleanedUpTokens: [
+          {
+            uid: "receiver-2",
+            token: "token-2",
+            code: "messaging/invalid-registration-token",
+          },
+          {
+            uid: "receiver-3",
+            token: "token-3",
+            code: "messaging/registration-token-not-registered",
+          },
+        ],
       }),
     );
   });
 
-  it("logs a structured skip when recipients have no FCM tokens", async () => {
+  it("does not remove tokens for transient send failures", async () => {
     const processMessageCreated = getProcessMessageCreated();
     const deps = createDeps();
 
     deps.getConversation.mockResolvedValue({
       memberIds: ["sender-1", "receiver-1", "receiver-2"],
     });
-    deps.getUser.mockImplementation(async (uid: string) => {
-      if (uid === "receiver-1") {
-        return {
-          fcmTokens: [],
-        };
-      }
-
-      return {
-        displayName: "Receiver Two",
-      };
+    deps.getUser.mockImplementation(async (uid: string) => ({
+      displayName: uid,
+      fcmTokens: uid === "receiver-1" ? ["token-1"] : ["token-2"],
+    }));
+    deps.sendEachForMulticast.mockResolvedValue({
+      successCount: 1,
+      failureCount: 1,
+      responses: [
+        {
+          success: true,
+        },
+        {
+          success: false,
+          error: {
+            code: "messaging/internal-error",
+            message: "Temporary messaging issue",
+          },
+        },
+      ],
     });
 
     await processMessageCreated(
@@ -216,16 +245,23 @@ describe("processMessageCreated skips", () => {
       deps,
     );
 
-    expect(deps.getUser).toHaveBeenCalledTimes(2);
-    expect(deps.sendEachForMulticast).not.toHaveBeenCalled();
-    expect(deps.logger.info).toHaveBeenCalledWith(
-      "Skipping message notification",
+    expect(deps.removeTokenFromUser).not.toHaveBeenCalled();
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      "Message notification send failures",
       expect.objectContaining({
-        reason: "missing_tokens",
-        conversationId: "conversation-1",
-        messageId: "message-1",
-        senderId: "sender-1",
+        failureCount: 1,
+        failures: [
+          {
+            token: "token-2",
+            code: "messaging/internal-error",
+            message: "Temporary messaging issue",
+          },
+        ],
       }),
+    );
+    expect(deps.logger.info).not.toHaveBeenCalledWith(
+      "Message notification invalid token cleanup",
+      expect.any(Object),
     );
   });
 });

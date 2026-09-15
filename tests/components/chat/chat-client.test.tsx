@@ -11,7 +11,7 @@ import {
 
 const setSelectedConversationId = vi.fn();
 
-vi.mock("./use-chat-data", () => ({
+vi.mock("@/components/chat/use-chat-data", () => ({
   useChatData: vi.fn(() => ({
     users: [],
     conversations: [],
@@ -24,7 +24,7 @@ vi.mock("./use-chat-data", () => ({
   })),
 }));
 
-vi.mock("./use-chat-actions", () => ({
+vi.mock("@/components/chat/use-chat-actions", () => ({
   useChatActions: vi.fn(() => ({
     draftMessage: "",
     setDraftMessage: vi.fn(),

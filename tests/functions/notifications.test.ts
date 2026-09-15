@@ -3,12 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
-import * as notificationsModule from "./notifications";
+import * as notificationsModule from "../../functions/src/notifications";
 
 const testFilePath = fileURLToPath(import.meta.url);
-const srcDir = path.dirname(testFilePath);
-const functionsDir = path.resolve(srcDir, "..");
-const repoRoot = path.resolve(functionsDir, "..");
+const testDir = path.dirname(testFilePath);
+const repoRoot = path.resolve(testDir, "../..");
 
 type MessageRecord = {
   senderId: string;
@@ -77,19 +76,29 @@ function getProcessMessageCreated(): ProcessMessageCreated {
   return processMessageCreated as ProcessMessageCreated;
 }
 
-function createDeps(overrides?: {
-  getConversation?: (conversationId: string) => Promise<ConversationRecord | null>;
-  getUser?: (uid: string) => Promise<UserRecord | null>;
-  sendEachForMulticast?: (message: {
-    tokens: string[];
-    data: Record<string, string>;
-    notification?: {
-      title: string;
-      body: string;
-    };
-  }) => Promise<BatchResponse>;
-  removeTokenFromUser?: (uid: string, token: string) => Promise<void>;
-}) {
+import type { Mock } from "vitest";
+
+type NotificationDeps = {
+  getConversation: Mock<(conversationId: string) => Promise<ConversationRecord | null>>;
+  getUser: Mock<(uid: string) => Promise<UserRecord | null>>;
+  sendEachForMulticast: Mock<
+    (message: {
+      tokens: string[];
+      data: Record<string, string>;
+      notification?: {
+        title: string;
+        body: string;
+      };
+    }) => Promise<BatchResponse>
+  >;
+  removeTokenFromUser: Mock<(uid: string, token: string) => Promise<void>>;
+  logger: {
+    info: Mock<(message: string, data: Record<string, unknown>) => void>;
+    error: Mock<(message: string, data: Record<string, unknown>) => void>;
+  };
+};
+
+function createDeps(overrides?: Partial<NotificationDeps>): NotificationDeps {
   return {
     getConversation: vi
       .fn<(conversationId: string) => Promise<ConversationRecord | null>>()

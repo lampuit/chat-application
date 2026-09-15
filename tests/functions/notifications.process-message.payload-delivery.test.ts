@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import * as notificationsModule from "./notifications";
+import * as notificationsModule from "../../functions/src/notifications";
 
 type MessageRecord = {
   senderId: string;
